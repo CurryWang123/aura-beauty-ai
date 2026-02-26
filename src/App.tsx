@@ -1034,7 +1034,7 @@ export default function App() {
                       <div className="space-y-8">
                         {!project.marketAnalysis && !isLocalLoading['market-analysis'] && (
                           <div className="brand-card p-10 space-y-8">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 items-end">
                               <div>
                                 <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-ink/30 mb-2 md:mb-3">品牌名称 / Brand Name</label>
                                 <input
