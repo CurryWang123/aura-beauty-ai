@@ -9,7 +9,7 @@ export const generateDoubaoImage = async (config: MediaConfig, prompt: string, b
     model: config.imageModel,
     prompt,
     size: '2K',
-    response_format: 'url',
+    response_format: 'b64_json',
     watermark: false,
   };
 
@@ -33,17 +33,10 @@ export const generateDoubaoImage = async (config: MediaConfig, prompt: string, b
   }
 
   const result = await response.json();
-  const imageUrl = result.data?.[0]?.url;
-  if (!imageUrl) throw new Error('文生图未返回图片');
+  const b64 = result.data?.[0]?.b64_json;
+  if (!b64) throw new Error('文生图未返回图片数据');
 
-  // 下载图片转为 data URL（避免跨域问题）
-  const imgResponse = await fetch(imageUrl);
-  const blob = await imgResponse.blob();
-  return new Promise<string>((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(blob);
-  });
+  return `data:image/jpeg;base64,${b64}`;
 };
 
 /**
