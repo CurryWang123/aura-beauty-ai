@@ -799,74 +799,146 @@ export default function App() {
   const HistoryView = ({ stage }: { stage: BrandStage }) => {
     const stageHistory = project.history[stage] || [];
     const stageLabel = STAGES.find(s => s.id === stage)?.label;
+    const stageInfo = STAGES.find(s => s.id === stage);
+    const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+
+    const getVersionSummary = (version: any): string => {
+      const messages = version.marketAnalysis || version.brandStory || version.formulaDesign || version.visualIdentity || version.packagingDesign;
+      if (messages && messages.length > 0) {
+        const lastAssistant = [...messages].reverse().find((m: any) => m.role === 'assistant');
+        if (lastAssistant) return lastAssistant.content.slice(0, 60).replace(/[#*\n]/g, '') + '...';
+      }
+      return '历史版本';
+    };
+
+    const formatTimeAgo = (timestamp: number): string => {
+      const diff = Date.now() - timestamp;
+      const minutes = Math.floor(diff / 60000);
+      if (minutes < 1) return '刚刚';
+      if (minutes < 60) return `${minutes} 分钟前`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours} 小时前`;
+      const days = Math.floor(hours / 24);
+      if (days < 30) return `${days} 天前`;
+      return new Date(timestamp).toLocaleDateString();
+    };
 
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="space-y-12"
+        className="space-y-6"
       >
-        <div className="flex items-center justify-between mb-12">
-          <button 
-            onClick={() => setViewingHistory(null)}
-            className="flex items-center gap-3 text-brand-ink/40 hover:text-brand-ink transition-colors font-black text-sm uppercase tracking-widest"
-          >
-            <ArrowLeft className="w-5 h-5" /> 返回 / Back
-          </button>
-          <div className="text-right">
-            <h3 className="text-4xl font-bold mb-2 text-brand-primary tracking-tight">{stageLabel} 历史记录</h3>
-            <p className="text-brand-ink/40 text-sm">共 {stageHistory.length} 个历史版本</p>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setViewingHistory(null); setExpandedIdx(null); }}
+              className="flex items-center gap-2 text-brand-ink/40 hover:text-brand-ink transition-colors text-sm font-medium"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <h3 className="text-xl font-bold text-brand-primary tracking-tight">{stageLabel} 历史记录</h3>
           </div>
+          <span className="text-brand-ink/30 text-xs">{stageHistory.length} 个版本</span>
         </div>
 
-        <div className="space-y-24 pl-12 border-l border-black/5">
-          {stageHistory.map((version, idx) => (
-            <div key={idx} className="relative">
-              <div className="absolute -left-[61px] top-0 w-6 h-6 rounded-full bg-white border-4 border-brand-primary shadow-lg flex items-center justify-center text-[10px] font-black">
-                {idx + 1}
+        {/* 详情视图 */}
+        {expandedIdx !== null ? (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setExpandedIdx(null)}
+                className="flex items-center gap-2 text-brand-ink/40 hover:text-brand-ink transition-colors text-xs font-medium"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> 返回列表
+              </button>
+              <button
+                onClick={() => {
+                  switchVersion(stage, expandedIdx);
+                  setViewingHistory(null);
+                  setExpandedIdx(null);
+                }}
+                className="px-5 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg hover:scale-105 transition-all"
+              >
+                恢复此版本
+              </button>
+            </div>
+
+            <div className="brand-card p-8 space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-black/5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ backgroundColor: stageInfo?.color, color: stageInfo?.textColor }}>
+                  V{expandedIdx + 1}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-brand-ink">版本 {expandedIdx + 1}</p>
+                  <p className="text-[10px] text-brand-ink/30">{new Date(stageHistory[expandedIdx].timestamp).toLocaleString()}</p>
+                </div>
               </div>
-              
-              <div className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-widest text-brand-primary">Version {idx + 1}</span>
-                  <span className="text-[10px] text-brand-ink/20 font-mono">{new Date(version.timestamp).toLocaleString()}</span>
-                </div>
 
-                <div className="opacity-80">
-                  {stage === 'market-analysis' && version.marketAnalysis && <MarketAnalysisResult messages={version.marketAnalysis} />}
-                  {stage === 'brand-story' && version.brandStory && <ChatHistory messages={version.brandStory} />}
-                  {stage === 'formula-design' && version.formulaDesign && <ChatHistory messages={version.formulaDesign} />}
-                  {stage === 'visual-identity' && version.visualIdentity && (
-                    <div className="space-y-10">
-                      {version.visualIdentityImage && (
-                        <img src={version.visualIdentityImage} className="w-full rounded-[2.5rem] shadow-xl" />
+              <div>
+                {(() => {
+                  const version = stageHistory[expandedIdx];
+                  return (
+                    <>
+                      {stage === 'market-analysis' && version.marketAnalysis && <MarketAnalysisResult messages={version.marketAnalysis} />}
+                      {stage === 'brand-story' && version.brandStory && <ChatHistory messages={version.brandStory} />}
+                      {stage === 'formula-design' && version.formulaDesign && <ChatHistory messages={version.formulaDesign} />}
+                      {stage === 'visual-identity' && version.visualIdentity && (
+                        <div className="space-y-10">
+                          {version.visualIdentityImage && <img src={version.visualIdentityImage} className="w-full rounded-[2.5rem] shadow-xl" />}
+                          <ChatHistory messages={version.visualIdentity} />
+                        </div>
                       )}
-                      <ChatHistory messages={version.visualIdentity} />
-                    </div>
-                  )}
-                  {stage === 'packaging-design' && version.packagingDesign && (
-                    <div className="space-y-10">
-                      <ChatHistory messages={version.packagingDesign} />
-                      {version.packagingImage && (
-                        <img src={version.packagingImage} className="w-full rounded-[2.5rem] shadow-xl" />
+                      {stage === 'packaging-design' && version.packagingDesign && (
+                        <div className="space-y-10">
+                          <ChatHistory messages={version.packagingDesign} />
+                          {version.packagingImage && <img src={version.packagingImage} className="w-full rounded-[2.5rem] shadow-xl" />}
+                        </div>
                       )}
-                    </div>
-                  )}
-                </div>
-
-                <button 
-                  onClick={() => {
-                    switchVersion(stage, idx);
-                    setViewingHistory(null);
-                  }}
-                  className="px-6 py-3 bg-brand-primary text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-all"
-                >
-                  恢复此版本 / Restore this version
-                </button>
+                    </>
+                  );
+                })()}
               </div>
             </div>
-          ))}
-        </div>
+          </motion.div>
+        ) : (
+          /* 列表视图 */
+          <div className="brand-card overflow-hidden">
+            {/* 表头 */}
+            <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-6 py-3 border-b border-black/5 text-[10px] font-black uppercase tracking-widest text-brand-ink/30">
+              <span>名称</span>
+              <span className="w-28 text-center">阶段</span>
+              <span className="w-32 text-right">更新时间</span>
+            </div>
+
+            {/* 列表 */}
+            {stageHistory.map((version, idx) => (
+              <div
+                key={idx}
+                onClick={() => setExpandedIdx(idx)}
+                className="grid grid-cols-[1fr_auto_auto] gap-4 items-center px-6 py-4 border-b border-black/[0.03] last:border-b-0 hover:bg-brand-surface/60 cursor-pointer transition-colors group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <FileText className="w-4 h-4 text-brand-ink/20 shrink-0" />
+                  <span className="text-sm text-brand-ink truncate">
+                    版本 {idx + 1} — {getVersionSummary(version)}
+                  </span>
+                </div>
+                <span className="w-28 text-center text-[10px] font-bold uppercase tracking-wider text-brand-ink/30 px-2 py-1 rounded-md bg-brand-surface">
+                  {stageLabel}
+                </span>
+                <span className="w-32 text-right text-xs text-brand-ink/30">
+                  {formatTimeAgo(version.timestamp)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </motion.div>
     );
   };
