@@ -1,4 +1,4 @@
-import type { AIProviderConfig, GeminiMediaConfig } from '../services/ai/types';
+import type { AIProviderConfig, MediaConfig } from '../services/ai/types';
 
 /**
  * 文本生成 AI 配置
@@ -29,10 +29,22 @@ export const aiConfig: AIProviderConfig = {
 // };
 
 /**
- * Gemini 媒体生成配置（图片/视频，独立于文本 provider）
+ * 媒体生成配置（图片/视频）
  */
-export const geminiMediaConfig: GeminiMediaConfig = {
-  apiKey: process.env.GEMINI_API_KEY!,
-  imageModel: 'gemini-2.5-flash-image',
-  videoModel: 'veo-3.1-fast-generate-preview',
+
+// ===== 豆包媒体配置（当前激活） =====
+export const mediaConfig: MediaConfig = {
+  provider: 'doubao',
+  apiKey: process.env.DOUBAO_API_KEY!,
+  imageModel: 'doubao-seedream-5-0-lite',
+  videoModel: 'doubao-seedance-1-0-pro-fast',
+  baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
+
+// ===== Gemini 媒体配置 =====
+// export const mediaConfig: MediaConfig = {
+//   provider: 'gemini',
+//   apiKey: process.env.GEMINI_API_KEY!,
+//   imageModel: 'gemini-2.5-flash-image',
+//   videoModel: 'veo-3.1-fast-generate-preview',
+// };

@@ -30,10 +30,15 @@ export interface AIProviderConfig {
 }
 
 /**
- * Gemini 媒体生成配置（图片/视频，Gemini 专属）
+ * 媒体生成配置（图片/视频）
  */
-export interface GeminiMediaConfig {
+export interface MediaConfig {
+  provider: 'gemini' | 'doubao';
   apiKey: string;
   imageModel: string;
   videoModel: string;
+  baseUrl?: string;
 }
+
+/** @deprecated 使用 MediaConfig 替代 */
+export type GeminiMediaConfig = MediaConfig;
