@@ -8,13 +8,14 @@ export const generateDoubaoImage = async (config: MediaConfig, prompt: string, b
   const body: any = {
     model: config.imageModel,
     prompt,
-    size: '1024x1024',
+    size: '2K',
+    response_format: 'url',
     watermark: false,
   };
 
-  // 图生图：传入参考图 URL（豆包需要 URL 格式，这里用 base64 data URL）
+  // 图生图：传入参考图 base64
   if (base64Image) {
-    body.image_urls = [base64Image];
+    body.image = base64Image;
   }
 
   const response = await fetch(`${config.baseUrl}/images/generations`, {
