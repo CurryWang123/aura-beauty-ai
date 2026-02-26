@@ -29,6 +29,8 @@ import {
   Plus,
   History as HistoryIcon,
   Square,
+  QrCode,
+  Share2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Markdown from 'react-markdown';
@@ -100,7 +102,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [hasKey, setHasKey] = useState(false);
   const [viewingHistory, setViewingHistory] = useState<BrandStage | null>(null);
-  
+  const [showQrCode, setShowQrCode] = useState(false);
+
   // 停止流式生成
   const stopStreamRef = useRef(false);
   const stopStreaming = () => { stopStreamRef.current = true; };
@@ -1041,6 +1044,12 @@ export default function App() {
             <h1 className="text-xl font-bold tracking-tight text-brand-primary">AuraBeauty AI</h1>
           </div>
           <p className="text-[10px] text-brand-ink/40 uppercase tracking-[0.2em] font-bold">Beauty Tech Solution</p>
+          <button
+            onClick={() => setShowQrCode(true)}
+            className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-primary/10 hover:bg-brand-primary/20 rounded-xl text-xs font-bold text-brand-primary transition-all"
+          >
+            <QrCode className="w-4 h-4" /> 分享二维码
+          </button>
         </div>
 
         <nav className="flex flex-row md:flex-col px-2 md:px-4 py-2 md:py-0 space-x-1 md:space-x-0 md:space-y-1 overflow-x-auto md:overflow-x-visible no-scrollbar">
@@ -1489,6 +1498,47 @@ export default function App() {
               <AlertCircle className="w-6 h-6" />
               <span className="font-bold">{error}</span>
               <button onClick={() => setError(null)} className="ml-6 text-white/60 hover:text-white">✕</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* QR Code Modal */}
+        <AnimatePresence>
+          {showQrCode && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setShowQrCode(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Share2 className="w-6 h-6 text-brand-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-brand-primary mb-2">扫码访问</h3>
+                <p className="text-brand-ink/40 text-sm mb-6">微信扫一扫，即可在手机上打开</p>
+                <div className="bg-white p-4 rounded-2xl border border-black/5 inline-block mb-6">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin)}`}
+                    alt="QR Code"
+                    className="w-48 h-48"
+                  />
+                </div>
+                <p className="text-[10px] text-brand-ink/30 font-mono mb-4 break-all">{window.location.origin}</p>
+                <button
+                  onClick={() => setShowQrCode(false)}
+                  className="w-full py-3 bg-brand-surface hover:bg-black/5 rounded-xl text-sm font-bold text-brand-ink/60 transition-all"
+                >
+                  关闭
+                </button>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
