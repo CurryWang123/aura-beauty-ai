@@ -5,20 +5,20 @@ import type { AIProviderConfig, GeminiMediaConfig } from '../services/ai/types';
  * 切换提供商只需修改此处配置
  */
 
-// ===== Gemini 配置（默认） =====
-export const aiConfig: AIProviderConfig = {
-  provider: 'gemini',
-  apiKey: process.env.GEMINI_API_KEY!,
-  model: 'gemini-3-flash-preview',
-};
-
-// ===== 豆包（火山引擎）配置 =====
+// ===== Gemini 配置 =====
 // export const aiConfig: AIProviderConfig = {
-//   provider: 'openai-compatible',
-//   apiKey: process.env.DOUBAO_API_KEY!,
-//   model: 'ep-xxxxx', // 替换为实际的 endpoint ID
-//   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+//   provider: 'gemini',
+//   apiKey: process.env.GEMINI_API_KEY!,
+//   model: 'gemini-3-flash-preview',
 // };
+
+// ===== 豆包（火山引擎）配置（当前激活） =====
+export const aiConfig: AIProviderConfig = {
+  provider: 'openai-compatible',
+  apiKey: process.env.DOUBAO_API_KEY!,
+  model: 'doubao-seed-1-8-251228',
+  baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+};
 
 // ===== OpenAI 配置 =====
 // export const aiConfig: AIProviderConfig = {
