@@ -606,6 +606,20 @@ export default function App() {
     </div>
   );
 
+  // 精简的历史入口，在尚无内容的阶段顶部显示
+  const HistoryEntry = ({ stage }: { stage: BrandStage }) => {
+    const stageHistory = project.history[stage] || [];
+    if (stageHistory.length === 0) return null;
+    return (
+      <button
+        onClick={() => setViewingHistory(stage)}
+        className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-accent hover:bg-brand-accent/80 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-primary transition-all border border-brand-primary/10"
+      >
+        <HistoryIcon className="w-3.5 h-3.5" /> 历史记录 ({stageHistory.length} 个版本) / History
+      </button>
+    );
+  };
+
   const HistoryControls = ({ stage }: { stage: BrandStage }) => {
     const stageHistory = project.history[stage] || [];
     
@@ -896,6 +910,7 @@ export default function App() {
 
   const renderStageInput = (stage: BrandStage, label: string, runFn: () => void, imageField?: 'packagingReferenceImage' | 'marketingVideoReferenceImage') => (
     <div className="brand-card p-8 space-y-6">
+      <HistoryEntry stage={stage} />
       <div>
         <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-ink/30 mb-3">{label}</label>
         <textarea 
@@ -1069,6 +1084,7 @@ export default function App() {
                       <div className="space-y-8">
                         {!project.marketAnalysis && !isLocalLoading['market-analysis'] && (
                           <div className="brand-card p-10 space-y-8">
+                            <HistoryEntry stage="market-analysis" />
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 items-end">
                               <div>
                                 <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-ink/30 mb-2 md:mb-3">品牌名称 / Brand Name</label>
