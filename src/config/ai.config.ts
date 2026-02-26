@@ -36,7 +36,7 @@ export const aiConfig: AIProviderConfig = {
 export const mediaConfig: MediaConfig = {
   provider: 'doubao',
   apiKey: process.env.DOUBAO_API_KEY!,
-  imageModel: 'doubao-seedream-5-0-lite',
+  imageModel: 'doubao-seedream-4-0-250828',
   videoModel: 'doubao-seedance-1-0-pro-fast',
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
