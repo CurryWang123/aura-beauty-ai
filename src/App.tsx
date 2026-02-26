@@ -72,8 +72,14 @@ const STAGES: { id: BrandStage; label: string; icon: React.ReactNode; descriptio
   { id: 'marketing-video', label: '营销短视频', icon: <Video className="w-5 h-5" />, description: '生成电影级产品推广视频', color: '#FFE0B2', textColor: '#7C2D12' },
 ];
 
-export default function App() {
-  const [project, setProject] = useState<BrandProject>({
+const STORAGE_KEY = 'aura-beauty-project';
+
+function loadProject(): BrandProject {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return {
     name: '',
     targetAudience: '',
     salesChannels: '',
@@ -82,7 +88,11 @@ export default function App() {
     coreValues: '',
     history: {},
     currentVersion: {},
-  });
+  };
+}
+
+export default function App() {
+  const [project, setProject] = useState<BrandProject>(loadProject);
   const [currentStage, setCurrentStage] = useState<BrandStage>('market-analysis');
   const [isLoading, setIsLoading] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState<Record<string, boolean>>({});
@@ -108,6 +118,13 @@ export default function App() {
     };
     checkKey();
   }, []);
+
+  // 持久化 project 到 localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+    } catch { /* 存储满时忽略 */ }
+  }, [project]);
 
   const handleOpenKeySelector = async () => {
     if (window.aistudio) {
