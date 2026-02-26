@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, 
   BarChart3, 
@@ -28,6 +28,7 @@ import {
   Image as ImageIcon,
   Plus,
   History as HistoryIcon,
+  Square,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Markdown from 'react-markdown';
@@ -90,6 +91,10 @@ export default function App() {
   const [hasKey, setHasKey] = useState(false);
   const [viewingHistory, setViewingHistory] = useState<BrandStage | null>(null);
   
+  // 停止流式生成
+  const stopStreamRef = useRef(false);
+  const stopStreaming = () => { stopStreamRef.current = true; };
+
   // Refinement states
   const [refinementInputs, setRefinementInputs] = useState<Record<string, string>>({});
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
@@ -203,12 +208,15 @@ export default function App() {
     streamPromise: Promise<any>,
     updateFn: (content: string) => void
   ) => {
+    stopStreamRef.current = false;
     const stream = await streamPromise;
     let fullContent = '';
     for await (const chunk of stream) {
+      if (stopStreamRef.current) break;
       fullContent += chunk.text;
       updateFn(fullContent);
     }
+    stopStreamRef.current = false;
     return fullContent;
   };
 
@@ -847,14 +855,24 @@ export default function App() {
           onChange={e => setRefinementInputs(prev => ({ ...prev, [stage]: e.target.value }))}
           onKeyDown={e => e.key === 'Enter' && handleRefine(stage)}
         />
-        <button 
-          onClick={() => handleRefine(stage)}
-          disabled={isLocalLoading[stage] || !refinementInputs[stage]}
-          className="px-6 brand-button-primary shadow-lg disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 font-bold text-xs"
-        >
-          {isLocalLoading[stage] ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          发送
-        </button>
+        {isLocalLoading[stage] ? (
+          <button
+            onClick={() => { stopStreaming(); setIsLocalLoading(prev => ({ ...prev, [stage]: false })); }}
+            className="px-6 py-3 rounded-xl bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-all flex items-center gap-2 font-bold text-xs"
+          >
+            <Square className="w-3.5 h-3.5 fill-current" />
+            停止
+          </button>
+        ) : (
+          <button
+            onClick={() => handleRefine(stage)}
+            disabled={!refinementInputs[stage]}
+            className="px-6 brand-button-primary shadow-lg disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 font-bold text-xs"
+          >
+            <RefreshCw className="w-4 h-4" />
+            发送
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1342,6 +1360,13 @@ export default function App() {
                 <Sparkles className="absolute inset-0 m-auto w-10 h-10 text-brand-primary animate-pulse" />
               </div>
               <p className="mt-10 text-brand-primary font-bold text-2xl tracking-tight">{loadingMsg}</p>
+              <button
+                onClick={() => { stopStreaming(); setIsLoading(false); }}
+                className="mt-6 px-6 py-2.5 rounded-full border border-brand-ink/20 text-brand-ink/60 text-sm font-medium hover:bg-brand-ink/5 hover:border-brand-ink/30 transition-all flex items-center gap-2"
+              >
+                <Square className="w-3.5 h-3.5 fill-current" />
+                停止生成
+              </button>
               <p className="mt-3 text-brand-ink/30 text-[10px] font-black tracking-[0.4em] uppercase">AuraBeauty AI Engine</p>
             </motion.div>
           )}
