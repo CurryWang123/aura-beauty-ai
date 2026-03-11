@@ -1037,11 +1037,9 @@ export default function App() {
       {/* Sidebar / Bottom Nav */}
       <aside className="w-full md:w-80 border-t md:border-t-0 md:border-r flex flex-col bg-brand-surface order-last md:order-first z-30">
         <div className="hidden md:block p-8">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center">
-              <Sparkles className="text-white w-5 h-5" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-brand-primary">AuraBeauty AI</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <img src="/jue-logo.jpg" alt="JUE Logo" className="h-10 w-auto object-contain" />
+            <h1 className="text-xl font-bold tracking-tight text-brand-primary">JUE BEAUTY AI</h1>
           </div>
           <p className="text-[10px] text-brand-ink/40 uppercase tracking-[0.2em] font-bold">Beauty Tech Solution</p>
           <button
@@ -1481,7 +1479,7 @@ export default function App() {
                 <Square className="w-3.5 h-3.5 fill-current" />
                 停止生成
               </button>
-              <p className="mt-3 text-brand-ink/30 text-[10px] font-black tracking-[0.4em] uppercase">AuraBeauty AI Engine</p>
+              <p className="mt-3 text-brand-ink/30 text-[10px] font-black tracking-[0.4em] uppercase">JUE BEAUTY AI Engine</p>
             </motion.div>
           )}
         </AnimatePresence>
