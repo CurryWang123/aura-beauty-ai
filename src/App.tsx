@@ -33,6 +33,7 @@ import {
   Share2,
   LogOut,
   KeyRound,
+  UserCircle,
 } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import AuthPage from './components/auth/AuthPage';
@@ -99,6 +100,7 @@ function loadProject(storageKey: string): BrandProject {
 export default function App() {
   const { user, isLoading: authLoading, logout, getMyApiKeys } = useAuth();
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // 按用户隔离的 storage key
   const storageKey = user ? `aura-beauty-project-${user.userId}` : 'aura-beauty-project';
@@ -1040,33 +1042,6 @@ export default function App() {
     <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-brand-bg">
       {/* Sidebar / Bottom Nav */}
       <aside className="w-full md:w-80 border-t md:border-t-0 md:border-r flex flex-col bg-brand-surface order-last md:order-first z-30">
-        {/* 移动端顶部用户栏 */}
-        <div className="flex md:hidden items-center justify-between px-3 py-2 border-b border-black/5">
-          <div className="flex items-center gap-2">
-            {hasKey
-              ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-              : <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-            }
-            <span className="text-[11px] font-bold text-[#888] truncate max-w-[120px]">{user.username}</span>
-          </div>
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => setShowApiKeyModal(true)}
-              title="配置 API Key"
-              className="p-2 hover:bg-black/5 rounded-lg transition-colors text-[#aaa] hover:text-[#555]"
-            >
-              <KeyRound className="w-4 h-4" />
-            </button>
-            <button
-              onClick={logout}
-              title="退出登录"
-              className="p-2 hover:bg-black/5 rounded-lg transition-colors text-[#aaa] hover:text-[#555]"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
         <div className="hidden md:block p-8">
           <div className="flex items-center gap-3 mb-2">
             <img src="/jue-logo.jpg" alt="JUE Logo" className="h-10 w-auto object-contain" />
@@ -1081,7 +1056,9 @@ export default function App() {
           </button>
         </div>
 
-        <nav className="flex flex-row md:flex-col px-2 md:px-4 py-2 md:py-0 space-x-1 md:space-x-0 md:space-y-1 overflow-x-auto md:overflow-x-visible no-scrollbar">
+        {/* 移动端：nav + 用户菜单图标 */}
+        <div className="flex md:contents">
+        <nav className="flex-1 flex flex-row md:flex-col px-2 md:px-4 py-2 md:py-0 space-x-1 md:space-x-0 md:space-y-1 overflow-x-auto md:overflow-x-visible no-scrollbar">
           {STAGES.map((stage) => (
             <button
               key={stage.id}
@@ -1122,6 +1099,18 @@ export default function App() {
             </button>
           ))}
         </nav>
+        {/* 移动端用户菜单触发按钮（不随 nav 滚动） */}
+        <button
+          onClick={() => setShowMobileMenu(true)}
+          className="md:hidden flex-shrink-0 flex flex-col items-center justify-center gap-1 px-3 py-2 text-brand-ink/50 hover:text-brand-ink/80 transition-colors relative"
+        >
+          <UserCircle className="w-5 h-5" />
+          {!hasKey && (
+            <span className="absolute top-1.5 right-2 w-2 h-2 bg-amber-400 rounded-full border border-white" />
+          )}
+          <span className="text-[9px] font-bold whitespace-nowrap">我的</span>
+        </button>
+        </div>{/* end mobile nav wrapper */}
 
         <div className="hidden md:block p-6 border-t border-black/5 space-y-3">
           {/* 用户信息 */}
@@ -1159,6 +1148,58 @@ export default function App() {
       </aside>
       {/* API Key 配置弹窗 */}
       {showApiKeyModal && <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />}
+
+      {/* 移动端用户菜单 */}
+      {showMobileMenu && (
+        <div
+          className="fixed inset-0 z-50 flex items-end md:hidden bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowMobileMenu(false)}
+        >
+          <div
+            className="w-full bg-white rounded-t-2xl shadow-xl p-6 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 用户信息 */}
+            <div className="flex items-center gap-3 pb-4 border-b border-black/5">
+              <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                <UserCircle className="w-6 h-6 text-brand-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[#1a1a1a]">{user.username}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {hasKey
+                    ? <><CheckCircle2 className="w-3 h-3 text-emerald-500" /><span className="text-[10px] text-emerald-500 font-medium">AI Engine Ready</span></>
+                    : <><AlertCircle className="w-3 h-3 text-amber-500" /><span className="text-[10px] text-amber-500 font-medium">未配置 API Key</span></>
+                  }
+                </div>
+              </div>
+            </div>
+            {/* 配置 API Key */}
+            <button
+              onClick={() => { setShowMobileMenu(false); setShowApiKeyModal(true); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-brand-primary/8 hover:bg-brand-primary/15 transition-colors text-left"
+            >
+              <KeyRound className="w-4 h-4 text-brand-primary flex-shrink-0" />
+              <span className="text-sm font-semibold text-brand-primary">配置 API Key</span>
+            </button>
+            {/* 退出登录 */}
+            <button
+              onClick={() => { setShowMobileMenu(false); logout(); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-black/5 transition-colors text-left"
+            >
+              <LogOut className="w-4 h-4 text-[#888] flex-shrink-0" />
+              <span className="text-sm font-semibold text-[#555]">退出登录</span>
+            </button>
+            {/* 关闭 */}
+            <button
+              onClick={() => setShowMobileMenu(false)}
+              className="w-full py-3 rounded-xl border border-black/10 text-xs font-bold text-[#888] hover:bg-black/5 transition-colors"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto relative bg-brand-bg no-scrollbar">
