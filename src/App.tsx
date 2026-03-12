@@ -1040,6 +1040,33 @@ export default function App() {
     <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-brand-bg">
       {/* Sidebar / Bottom Nav */}
       <aside className="w-full md:w-80 border-t md:border-t-0 md:border-r flex flex-col bg-brand-surface order-last md:order-first z-30">
+        {/* 移动端顶部用户栏 */}
+        <div className="flex md:hidden items-center justify-between px-3 py-2 border-b border-black/5">
+          <div className="flex items-center gap-2">
+            {hasKey
+              ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+              : <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            }
+            <span className="text-[11px] font-bold text-[#888] truncate max-w-[120px]">{user.username}</span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setShowApiKeyModal(true)}
+              title="配置 API Key"
+              className="p-2 hover:bg-black/5 rounded-lg transition-colors text-[#aaa] hover:text-[#555]"
+            >
+              <KeyRound className="w-4 h-4" />
+            </button>
+            <button
+              onClick={logout}
+              title="退出登录"
+              className="p-2 hover:bg-black/5 rounded-lg transition-colors text-[#aaa] hover:text-[#555]"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
         <div className="hidden md:block p-8">
           <div className="flex items-center gap-3 mb-2">
             <img src="/jue-logo.jpg" alt="JUE Logo" className="h-10 w-auto object-contain" />

@@ -31,10 +31,10 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F0EB] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#F5F0EB] flex items-start sm:items-center justify-center px-4 py-10 overflow-y-auto">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8 sm:mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
             <Sparkles className="w-7 h-7 text-[#C9A96E]" />
             <span className="text-2xl font-black tracking-tight text-[#1a1a1a]">JUE BEAUTY AI</span>
@@ -43,7 +43,7 @@ export default function AuthPage() {
         </div>
 
         {/* 卡片 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-black/5 p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-black/5 p-5 sm:p-8">
           {/* Tab */}
           <div className="flex rounded-xl bg-[#F5F0EB] p-1 mb-6">
             {(['login', 'register'] as Tab[]).map(t => (
