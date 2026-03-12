@@ -43,9 +43,10 @@ export interface BrandProject {
 
 declare global {
   interface Window {
-    aistudio: {
-      hasSelectedApiKey: () => Promise<boolean>;
-      openSelectKey: () => Promise<void>;
+    __jubeauty_api_keys__?: {
+      doubaoApiKey: string;
+      geminiApiKey: string;
+      openaiApiKey: string;
     };
   }
 }

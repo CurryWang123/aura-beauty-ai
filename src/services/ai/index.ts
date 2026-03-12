@@ -1,4 +1,4 @@
-import { aiConfig } from '../../config/ai.config';
+import { getActiveAiConfig } from '../../config/ai.config';
 import type { TextStreamAdapter } from './types';
 import { GeminiAdapter } from './gemini.adapter';
 import { OpenAICompatibleAdapter } from './openai-compatible.adapter';
@@ -11,16 +11,22 @@ let adapterInstance: TextStreamAdapter | null = null;
  */
 export function getTextStreamAdapter(): TextStreamAdapter {
   if (!adapterInstance) {
-    switch (aiConfig.provider) {
+    const config = getActiveAiConfig();
+    switch (config.provider) {
       case 'gemini':
-        adapterInstance = new GeminiAdapter(aiConfig);
+        adapterInstance = new GeminiAdapter(config);
         break;
       case 'openai-compatible':
-        adapterInstance = new OpenAICompatibleAdapter(aiConfig);
+        adapterInstance = new OpenAICompatibleAdapter(config);
         break;
       default:
-        throw new Error(`未知的 AI 提供商: ${(aiConfig as any).provider}`);
+        throw new Error(`未知的 AI 提供商: ${(config as any).provider}`);
     }
   }
   return adapterInstance;
+}
+
+/** 重置适配器单例，API Key 更新或退出登录时调用 */
+export function resetTextStreamAdapter(): void {
+  adapterInstance = null;
 }

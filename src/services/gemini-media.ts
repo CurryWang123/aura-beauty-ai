@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { mediaConfig } from '../config/ai.config';
+import { getActiveMediaConfig } from '../config/ai.config';
 import { generateDoubaoImage, generateDoubaoVideo } from './doubao-media';
 
 /**
@@ -7,6 +7,7 @@ import { generateDoubaoImage, generateDoubaoVideo } from './doubao-media';
  * 根据 mediaConfig.provider 自动选择 Gemini 或豆包
  */
 export const generatePackagingDesign = async (prompt: string, base64Image?: string) => {
+  const mediaConfig = getActiveMediaConfig();
   const fullPrompt = `High-end beauty product packaging design: ${prompt}. Professional studio photography, elegant lighting, luxury aesthetic.`;
 
   if (mediaConfig.provider === 'doubao') {
@@ -54,6 +55,7 @@ export const generateMarketingVideo = async (
   onProgress: (msg: string) => void,
   base64Image?: string,
 ) => {
+  const mediaConfig = getActiveMediaConfig();
   const fullPrompt = `Cinematic beauty commercial: ${prompt}. Slow motion, high-end production value, elegant transitions.`;
 
   if (mediaConfig.provider === 'doubao') {

@@ -20,6 +20,14 @@ export const aiConfig: AIProviderConfig = {
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
 
+/** 运行时读取 API Key（优先 window.__jubeauty_api_keys__，其次 .env） */
+export function getActiveAiConfig(): AIProviderConfig {
+  return {
+    ...aiConfig,
+    apiKey: window.__jubeauty_api_keys__?.doubaoApiKey || process.env.DOUBAO_API_KEY || '',
+  };
+}
+
 // ===== OpenAI 配置 =====
 // export const aiConfig: AIProviderConfig = {
 //   provider: 'openai-compatible',
@@ -40,6 +48,14 @@ export const mediaConfig: MediaConfig = {
   videoModel: 'doubao-seedance-1-0-pro-fast',
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
+
+/** 运行时读取媒体 API Key */
+export function getActiveMediaConfig(): MediaConfig {
+  return {
+    ...mediaConfig,
+    apiKey: window.__jubeauty_api_keys__?.doubaoApiKey || process.env.DOUBAO_API_KEY || '',
+  };
+}
 
 // ===== Gemini 媒体配置 =====
 // export const mediaConfig: MediaConfig = {

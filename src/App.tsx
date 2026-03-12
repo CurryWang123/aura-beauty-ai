@@ -4,14 +4,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Sparkles, 
-  BarChart3, 
-  BookOpen, 
-  Palette, 
-  Package, 
-  Video, 
-  ChevronRight, 
+import {
+  Sparkles,
+  BarChart3,
+  BookOpen,
+  Palette,
+  Package,
+  Video,
+  ChevronRight,
   Loader2,
   ArrowRight,
   ArrowLeft,
@@ -31,7 +31,12 @@ import {
   Square,
   QrCode,
   Share2,
+  LogOut,
+  KeyRound,
 } from 'lucide-react';
+import { useAuth } from './contexts/AuthContext';
+import AuthPage from './components/auth/AuthPage';
+import ApiKeyModal from './components/auth/ApiKeyModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import Markdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
@@ -74,11 +79,9 @@ const STAGES: { id: BrandStage; label: string; icon: React.ReactNode; descriptio
   { id: 'marketing-video', label: '营销短视频', icon: <Video className="w-5 h-5" />, description: '生成电影级产品推广视频', color: '#FFE0B2', textColor: '#7C2D12' },
 ];
 
-const STORAGE_KEY = 'aura-beauty-project';
-
-function loadProject(): BrandProject {
+function loadProject(storageKey: string): BrandProject {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey);
     if (saved) return JSON.parse(saved);
   } catch { /* ignore */ }
   return {
@@ -94,13 +97,18 @@ function loadProject(): BrandProject {
 }
 
 export default function App() {
-  const [project, setProject] = useState<BrandProject>(loadProject);
+  const { user, isLoading: authLoading, logout, getMyApiKeys } = useAuth();
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+
+  // 按用户隔离的 storage key
+  const storageKey = user ? `aura-beauty-project-${user.userId}` : 'aura-beauty-project';
+
+  const [project, setProject] = useState<BrandProject>(() => loadProject(storageKey));
   const [currentStage, setCurrentStage] = useState<BrandStage>('market-analysis');
   const [isLoading, setIsLoading] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState<Record<string, boolean>>({});
   const [loadingMsg, setLoadingMsg] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [hasKey, setHasKey] = useState(false);
   const [viewingHistory, setViewingHistory] = useState<BrandStage | null>(null);
   const [showQrCode, setShowQrCode] = useState(false);
 
@@ -112,29 +120,25 @@ export default function App() {
   const [refinementInputs, setRefinementInputs] = useState<Record<string, string>>({});
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
 
+  // 用户切换时重新加载 project
   useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio) {
-        const selected = await window.aistudio.hasSelectedApiKey();
-        setHasKey(selected);
-      }
-    };
-    checkKey();
-  }, []);
+    setProject(loadProject(storageKey));
+  }, [storageKey]);
 
   // 持久化 project 到 localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
+      localStorage.setItem(storageKey, JSON.stringify(project));
     } catch { /* 存储满时忽略 */ }
-  }, [project]);
+  }, [project, storageKey]);
 
-  const handleOpenKeySelector = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setHasKey(true);
-    }
-  };
+  // 认证中显示空白
+  if (authLoading) return null;
+  // 未登录显示认证页
+  if (!user) return <AuthPage />;
+
+  // API Key 状态
+  const hasKey = !!(getMyApiKeys()?.doubaoApiKey);
 
   const startNewSession = (stage: BrandStage) => {
     setProject(prev => {
@@ -552,7 +556,7 @@ export default function App() {
 
   const runVideo = async () => {
     if (!hasKey) {
-      setError('视频生成需要选择 API Key');
+      setError('视频生成需要先配置 API Key，请点击侧边栏底部「配置 API Key」');
       return;
     }
     setIsLocalLoading(prev => ({ ...prev, 'marketing-video': true }));
@@ -1092,24 +1096,42 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="hidden md:block p-6 border-t border-black/5">
-          {!hasKey && (
-            <button 
-              onClick={handleOpenKeySelector}
-              className="w-full py-3 px-4 bg-brand-primary/10 text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-brand-primary/20 transition-colors"
+        <div className="hidden md:block p-6 border-t border-black/5 space-y-3">
+          {/* 用户信息 */}
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[10px] font-bold text-[#888] truncate max-w-[120px]">{user.username}</span>
+            <button
+              onClick={logout}
+              title="退出登录"
+              className="p-1.5 hover:bg-black/5 rounded-lg transition-colors text-[#aaa] hover:text-[#555]"
             >
-              <AlertCircle className="w-3.5 h-3.5" />
-              Configure API Key
+              <LogOut className="w-3.5 h-3.5" />
             </button>
-          )}
-          {hasKey && (
+          </div>
+          {/* API Key 按钮 */}
+          <button
+            onClick={() => setShowApiKeyModal(true)}
+            className="w-full py-2.5 px-4 bg-brand-primary/10 text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-brand-primary/20 transition-colors"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            配置 API Key
+          </button>
+          {/* Key 状态 */}
+          {hasKey ? (
             <div className="flex items-center gap-2 text-emerald-500 text-[10px] font-bold uppercase tracking-wider px-2">
               <CheckCircle2 className="w-3.5 h-3.5" />
               AI Engine Ready
             </div>
+          ) : (
+            <div className="flex items-center gap-2 text-amber-500 text-[10px] font-bold uppercase tracking-wider px-2">
+              <AlertCircle className="w-3.5 h-3.5" />
+              未配置 API Key
+            </div>
           )}
         </div>
       </aside>
+      {/* API Key 配置弹窗 */}
+      {showApiKeyModal && <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />}
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto relative bg-brand-bg no-scrollbar">
