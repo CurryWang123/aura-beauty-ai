@@ -20,7 +20,6 @@ router.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    // 检查手机号是否已注册
     const existing = await pool.query('SELECT id FROM users WHERE phone = $1', [phone]);
     if (existing.rows.length > 0) {
       res.status(409).json({ error: '该手机号已注册' });
@@ -29,12 +28,12 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO users (phone, password_hash, display_name) VALUES ($1, $2, $3) RETURNING id, phone, display_name, created_at',
+      'INSERT INTO users (phone, password_hash, display_name) VALUES ($1, $2, $3) RETURNING id, phone, display_name, role, created_at',
       [phone, passwordHash, displayName || null]
     );
 
     const user = result.rows[0];
-    const token = signToken({ userId: user.id, phone: user.phone });
+    const token = signToken({ userId: user.id, phone: user.phone, role: user.role });
 
     res.status(201).json({
       token,
@@ -42,6 +41,7 @@ router.post('/register', async (req: Request, res: Response) => {
         userId: user.id,
         phone: user.phone,
         displayName: user.display_name || '',
+        role: user.role,
       },
     });
   } catch (err) {
@@ -55,7 +55,8 @@ router.post('/login', async (req: Request, res: Response) => {
   try {
     const { phone, password } = req.body;
 
-    if (!phone || !PHONE_REGEX.test(phone)) {
+    // admin 账号跳过手机号格式校验
+    if (!phone || (phone !== 'admin' && !PHONE_REGEX.test(phone))) {
       res.status(400).json({ error: '请输入有效的手机号' });
       return;
     }
@@ -65,7 +66,7 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const result = await pool.query(
-      'SELECT id, phone, password_hash, display_name FROM users WHERE phone = $1',
+      'SELECT id, phone, password_hash, display_name, role FROM users WHERE phone = $1',
       [phone]
     );
     if (result.rows.length === 0) {
@@ -80,7 +81,7 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const token = signToken({ userId: user.id, phone: user.phone });
+    const token = signToken({ userId: user.id, phone: user.phone, role: user.role });
 
     res.json({
       token,
@@ -88,6 +89,7 @@ router.post('/login', async (req: Request, res: Response) => {
         userId: user.id,
         phone: user.phone,
         displayName: user.display_name || '',
+        role: user.role,
       },
     });
   } catch (err) {
@@ -100,7 +102,7 @@ router.post('/login', async (req: Request, res: Response) => {
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
-      'SELECT id, phone, display_name, created_at FROM users WHERE id = $1',
+      'SELECT id, phone, display_name, role, created_at FROM users WHERE id = $1',
       [req.user!.userId]
     );
     if (result.rows.length === 0) {
@@ -113,6 +115,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
       userId: user.id,
       phone: user.phone,
       displayName: user.display_name || '',
+      role: user.role,
     });
   } catch (err) {
     console.error('Me error:', err);

@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'juebeauty_jwt_secret_change_in_pro
 export interface JwtPayload {
   userId: string;
   phone: string;
+  role: string;
 }
 
 declare global {
