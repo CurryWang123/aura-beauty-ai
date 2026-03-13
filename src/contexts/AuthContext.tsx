@@ -35,6 +35,21 @@ function clearInjectedApiKeys(): void {
   delete (window as any).__jubeauty_api_keys__;
 }
 
+async function syncApiKeysToServer(token: string, keys: Omit<ApiKeys, 'updatedAt'>): Promise<void> {
+  try {
+    await fetch('/api/user/api-keys', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(keys),
+    });
+  } catch {
+    // 静默失败
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       displayName: data.user.displayName,
       token: data.token,
       loginAt: Date.now(),
+      role: data.user.role || 'user',
     };
     saveSession(session);
     injectApiKeys(session.userId);
@@ -87,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       displayName: data.user.displayName,
       token: data.token,
       loginAt: Date.now(),
+      role: data.user.role || 'user',
     };
     saveSession(session);
     injectApiKeys(session.userId);
@@ -105,6 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveApiKeys(user.userId, keys);
     injectApiKeys(user.userId);
     resetTextStreamAdapter();
+    // 异步同步到后端
+    syncApiKeysToServer(user.token, keys);
   }, [user]);
 
   const getMyApiKeys = useCallback((): ApiKeys | null => {

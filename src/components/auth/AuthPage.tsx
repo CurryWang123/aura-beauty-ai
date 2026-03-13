@@ -20,7 +20,8 @@ export default function AuthPage() {
     setError('');
 
     const trimmedPhone = phone.trim();
-    if (!PHONE_REGEX.test(trimmedPhone)) {
+    // admin 账号跳过手机号格式校验
+    if (trimmedPhone !== 'admin' && !PHONE_REGEX.test(trimmedPhone)) {
       setError('请输入有效的手机号');
       return;
     }
@@ -76,12 +77,11 @@ export default function AuthPage() {
                 手机号
               </label>
               <input
-                type="tel"
+                type="text"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
                 placeholder="请输入手机号"
                 required
-                maxLength={11}
                 autoComplete="tel"
                 className="w-full px-4 py-3 rounded-xl border border-black/10 bg-[#FAFAF9] text-sm text-[#1a1a1a] placeholder:text-[#bbb] focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/40 focus:border-[#C9A96E] transition-all"
               />

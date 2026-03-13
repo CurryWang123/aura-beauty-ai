@@ -120,7 +120,7 @@ export default function ApiKeyModal({ onClose }: Props) {
         </div>
 
         <p className="text-[10px] text-[#bbb] text-center mt-4">
-          API Key 仅存储在本地，不会上传至任何服务器
+          API Key 将安全加密存储
         </p>
       </div>
     </div>

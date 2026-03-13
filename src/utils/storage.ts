@@ -8,6 +8,7 @@ export interface SessionData {
   displayName: string;
   token: string;
   loginAt: number;
+  role: string;
 }
 
 export interface ApiKeys {

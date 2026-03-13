@@ -134,6 +134,37 @@ export default function App() {
     } catch { /* 存储满时忽略 */ }
   }, [project, storageKey]);
 
+  // 消息 debounce 同步到后端
+  useEffect(() => {
+    if (!user?.token) return;
+    const timer = setTimeout(() => {
+      const stages: BrandStage[] = ['market-analysis', 'brand-story', 'formula-design', 'visual-identity', 'packaging-design', 'marketing-video'];
+      const stageKeyMap: Record<BrandStage, keyof BrandProject> = {
+        'market-analysis': 'marketAnalysis',
+        'brand-story': 'brandStory',
+        'formula-design': 'formulaDesign',
+        'visual-identity': 'visualIdentity',
+        'packaging-design': 'packagingDesign',
+        'marketing-video': 'packagingDesign', // marketing-video 没有 ChatMessage[]，跳过
+      };
+      for (const stage of stages) {
+        const key = stageKeyMap[stage];
+        const messages = project[key] as ChatMessage[] | undefined;
+        if (messages && messages.length > 0) {
+          fetch('/api/user/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${user.token}`,
+            },
+            body: JSON.stringify({ stage, messages }),
+          }).catch(() => {});
+        }
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [project, user]);
+
   // 认证中显示空白
   if (authLoading) return null;
   // 未登录显示认证页
