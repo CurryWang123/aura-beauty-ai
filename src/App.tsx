@@ -1115,7 +1115,7 @@ export default function App() {
         <div className="hidden md:block p-6 border-t border-black/5 space-y-3">
           {/* 用户信息 */}
           <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-bold text-[#888] truncate max-w-[120px]">{user.username}</span>
+            <span className="text-[10px] font-bold text-[#888] truncate max-w-[120px]">{user.displayName || user.phone}</span>
             <button
               onClick={logout}
               title="退出登录"
@@ -1165,7 +1165,7 @@ export default function App() {
                 <UserCircle className="w-6 h-6 text-brand-primary" />
               </div>
               <div>
-                <p className="text-sm font-bold text-[#1a1a1a]">{user.username}</p>
+                <p className="text-sm font-bold text-[#1a1a1a]">{user.displayName || user.phone}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {hasKey
                     ? <><CheckCircle2 className="w-3 h-3 text-emerald-500" /><span className="text-[10px] text-emerald-500 font-medium">AI Engine Ready</span></>

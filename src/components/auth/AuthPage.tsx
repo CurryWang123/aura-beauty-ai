@@ -4,10 +4,12 @@ import { useAuth } from '../../contexts/AuthContext';
 
 type Tab = 'login' | 'register';
 
+const PHONE_REGEX = /^1[3-9]\d{9}$/;
+
 export default function AuthPage() {
   const { login, register } = useAuth();
   const [tab, setTab] = useState<Tab>('login');
-  const [username, setUsername] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,12 +18,19 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const trimmedPhone = phone.trim();
+    if (!PHONE_REGEX.test(trimmedPhone)) {
+      setError('请输入有效的手机号');
+      return;
+    }
+
     setLoading(true);
     try {
       if (tab === 'login') {
-        await login(username.trim(), password);
+        await login(trimmedPhone, password);
       } else {
-        await register(username.trim(), password, displayName.trim() || undefined);
+        await register(trimmedPhone, password, displayName.trim() || undefined);
       }
     } catch (err: any) {
       setError(err.message || '操作失败');
@@ -64,15 +73,16 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[#888] mb-1.5">
-                用户名
+                手机号
               </label>
               <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="请输入用户名"
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="请输入手机号"
                 required
-                autoComplete="username"
+                maxLength={11}
+                autoComplete="tel"
                 className="w-full px-4 py-3 rounded-xl border border-black/10 bg-[#FAFAF9] text-sm text-[#1a1a1a] placeholder:text-[#bbb] focus:outline-none focus:ring-2 focus:ring-[#C9A96E]/40 focus:border-[#C9A96E] transition-all"
               />
             </div>
@@ -125,10 +135,6 @@ export default function AuthPage() {
             </button>
           </form>
         </div>
-
-        <p className="text-center text-[10px] text-[#aaa] mt-6">
-          账号数据仅存储在本地浏览器中
-        </p>
       </div>
     </div>
   );

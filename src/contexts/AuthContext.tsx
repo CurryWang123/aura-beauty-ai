@@ -1,12 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { hashPassword, verifyPassword } from '../utils/crypto';
 import {
-  StoredUser,
   SessionData,
   ApiKeys,
-  getUsers,
-  saveUser,
-  findUserByUsername,
   getSession,
   saveSession,
   clearSession,
@@ -18,8 +13,8 @@ import { resetTextStreamAdapter } from '../services/ai';
 interface AuthContextValue {
   user: SessionData | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string, displayName?: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<void>;
+  register: (phone: string, password: string, displayName?: string) => Promise<void>;
   logout: () => void;
   updateApiKeys: (keys: Omit<ApiKeys, 'updatedAt'>) => void;
   getMyApiKeys: () => ApiKeys | null;
@@ -36,7 +31,7 @@ function injectApiKeys(userId: string): void {
   };
 }
 
-function clearApiKeys(): void {
+function clearInjectedApiKeys(): void {
   delete (window as any).__jubeauty_api_keys__;
 }
 
@@ -47,55 +42,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 启动时恢复 session
   useEffect(() => {
     const session = getSession();
-    if (session) {
-      const users = getUsers();
-      if (users[session.userId]) {
-        injectApiKeys(session.userId);
-        setUser(session);
-      } else {
-        clearSession();
-      }
+    if (session?.token) {
+      injectApiKeys(session.userId);
+      setUser(session);
+    } else {
+      clearSession();
     }
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const stored = findUserByUsername(username);
-    if (!stored) throw new Error('用户名不存在');
-    const ok = await verifyPassword(password, stored.passwordHash);
-    if (!ok) throw new Error('密码错误');
+  const login = useCallback(async (phone: string, password: string) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '登录失败');
 
-    const session: SessionData = { userId: stored.id, username: stored.username, loginAt: Date.now() };
+    const session: SessionData = {
+      userId: data.user.userId,
+      phone: data.user.phone,
+      displayName: data.user.displayName,
+      token: data.token,
+      loginAt: Date.now(),
+    };
     saveSession(session);
-    injectApiKeys(stored.id);
+    injectApiKeys(session.userId);
     setUser(session);
   }, []);
 
-  const register = useCallback(async (username: string, password: string, displayName?: string) => {
-    if (!username.trim()) throw new Error('用户名不能为空');
-    if (password.length < 6) throw new Error('密码至少 6 位');
-    if (findUserByUsername(username)) throw new Error('用户名已存在');
+  const register = useCallback(async (phone: string, password: string, displayName?: string) => {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, password, displayName }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '注册失败');
 
-    const id = `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const passwordHash = await hashPassword(password);
-    const newUser: StoredUser = {
-      id,
-      username,
-      displayName: displayName || username,
-      passwordHash,
-      createdAt: Date.now(),
+    const session: SessionData = {
+      userId: data.user.userId,
+      phone: data.user.phone,
+      displayName: data.user.displayName,
+      token: data.token,
+      loginAt: Date.now(),
     };
-    saveUser(newUser);
-
-    const session: SessionData = { userId: id, username, loginAt: Date.now() };
     saveSession(session);
-    injectApiKeys(id);
+    injectApiKeys(session.userId);
     setUser(session);
   }, []);
 
   const logout = useCallback(() => {
     clearSession();
-    clearApiKeys();
+    clearInjectedApiKeys();
     resetTextStreamAdapter();
     setUser(null);
   }, []);

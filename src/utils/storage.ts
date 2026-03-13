@@ -2,17 +2,11 @@
  * localStorage 读写封装，提供类型安全 CRUD
  */
 
-export interface StoredUser {
-  id: string;
-  username: string;
-  displayName: string;
-  passwordHash: string; // "salt:hash"
-  createdAt: number;
-}
-
 export interface SessionData {
   userId: string;
-  username: string;
+  phone: string;
+  displayName: string;
+  token: string;
   loginAt: number;
 }
 
@@ -21,30 +15,6 @@ export interface ApiKeys {
   geminiApiKey: string;
   openaiApiKey: string;
   updatedAt: number;
-}
-
-// ===== 用户管理 =====
-
-const USERS_KEY = 'jue-beauty-users';
-
-export function getUsers(): Record<string, StoredUser> {
-  try {
-    const raw = localStorage.getItem(USERS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-export function saveUser(user: StoredUser): void {
-  const users = getUsers();
-  users[user.id] = user;
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
-
-export function findUserByUsername(username: string): StoredUser | null {
-  const users = getUsers();
-  return Object.values(users).find(u => u.username === username) ?? null;
 }
 
 // ===== Session 管理 =====
