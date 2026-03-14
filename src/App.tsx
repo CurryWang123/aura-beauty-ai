@@ -34,6 +34,7 @@ import {
   LogOut,
   KeyRound,
   UserCircle,
+  Menu,
 } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import AuthPage from './components/auth/AuthPage';
@@ -100,7 +101,7 @@ function loadProject(storageKey: string): BrandProject {
 export default function App() {
   const { user, isLoading: authLoading, logout, getMyApiKeys } = useAuth();
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // 按用户隔离的 storage key
   const storageKey = user ? `aura-beauty-project-${user.userId}` : 'aura-beauty-project';
@@ -170,8 +171,8 @@ export default function App() {
   // 未登录显示认证页
   if (!user) return <AuthPage />;
 
-  // API Key 状态
-  const hasKey = !!(getMyApiKeys()?.doubaoApiKey);
+  // API Key 状态（有个人 Key 或默认共享 Key 时均视为已配置）
+  const hasKey = !!(getMyApiKeys()?.doubaoApiKey) || true;
 
   const startNewSession = (stage: BrandStage) => {
     setProject(prev => {
@@ -727,13 +728,17 @@ export default function App() {
     return (
       <div className="space-y-8">
         {messages.map((msg, idx) => {
-          const chartMatch = msg.content.match(/```chart-data\n([\s\S]*?)\n```/);
-          const textContent = msg.content.replace(/```chart-data\n([\s\S]*?)\n```/, '');
+          const chartMatch = msg.content.match(/```(?:chart-data|json)\n([\s\S]*?)\n```/);
+          const textContent = msg.content.replace(/```(?:chart-data|json)\n([\s\S]*?)\n```/g, '');
           
           let chartData = null;
           if (chartMatch) {
             try {
-              chartData = JSON.parse(chartMatch[1]);
+              const parsed = JSON.parse(chartMatch[1]);
+              // 仅当 JSON 包含 chart 结构（type + data 字段）时才作为图表处理
+              if (parsed && parsed.type && Array.isArray(parsed.data)) {
+                chartData = parsed;
+              }
             } catch (e) {
               console.error("Failed to parse chart data", e);
             }
@@ -1130,17 +1135,6 @@ export default function App() {
             </button>
           ))}
         </nav>
-        {/* 移动端用户菜单触发按钮（不随 nav 滚动） */}
-        <button
-          onClick={() => setShowMobileMenu(true)}
-          className="md:hidden flex-shrink-0 flex flex-col items-center justify-center gap-1 px-3 py-2 text-brand-ink/50 hover:text-brand-ink/80 transition-colors relative"
-        >
-          <UserCircle className="w-5 h-5" />
-          {!hasKey && (
-            <span className="absolute top-1.5 right-2 w-2 h-2 bg-amber-400 rounded-full border border-white" />
-          )}
-          <span className="text-[9px] font-bold whitespace-nowrap">我的</span>
-        </button>
         </div>{/* end mobile nav wrapper */}
 
         <div className="hidden md:block p-6 border-t border-black/5 space-y-3">
@@ -1180,60 +1174,113 @@ export default function App() {
       {/* API Key 配置弹窗 */}
       {showApiKeyModal && <ApiKeyModal onClose={() => setShowApiKeyModal(false)} />}
 
-      {/* 移动端用户菜单 */}
-      {showMobileMenu && (
-        <div
-          className="fixed inset-0 z-50 flex items-end md:hidden bg-black/40 backdrop-blur-sm"
-          onClick={() => setShowMobileMenu(false)}
-        >
-          <div
-            className="w-full bg-white rounded-t-2xl shadow-xl p-6 space-y-4"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* 用户信息 */}
-            <div className="flex items-center gap-3 pb-4 border-b border-black/5">
-              <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
-                <UserCircle className="w-6 h-6 text-brand-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-[#1a1a1a]">{user.displayName || user.phone}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {hasKey
-                    ? <><CheckCircle2 className="w-3 h-3 text-emerald-500" /><span className="text-[10px] text-emerald-500 font-medium">AI Engine Ready</span></>
-                    : <><AlertCircle className="w-3 h-3 text-amber-500" /><span className="text-[10px] text-amber-500 font-medium">未配置 API Key</span></>
-                  }
+      {/* 移动端左侧抽屉侧边栏 */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <>
+            {/* 遮罩 */}
+            <motion.div
+              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            {/* 抽屉面板 */}
+            <motion.div
+              className="fixed top-0 left-0 h-full w-72 z-50 bg-brand-surface flex flex-col shadow-2xl md:hidden"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            >
+              {/* Logo */}
+              <div className="p-6 border-b border-black/5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img src="/jue-logo.jpg" alt="JUE Logo" className="h-8 w-auto object-contain" />
+                    <span className="text-base font-bold tracking-tight text-brand-primary">JUE BEAUTY AI</span>
+                  </div>
+                  <button onClick={() => setMobileSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-black/5 text-brand-ink/40">
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-            </div>
-            {/* 配置 API Key */}
-            <button
-              onClick={() => { setShowMobileMenu(false); setShowApiKeyModal(true); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-brand-primary/8 hover:bg-brand-primary/15 transition-colors text-left"
-            >
-              <KeyRound className="w-4 h-4 text-brand-primary flex-shrink-0" />
-              <span className="text-sm font-semibold text-brand-primary">配置 API Key</span>
-            </button>
-            {/* 退出登录 */}
-            <button
-              onClick={() => { setShowMobileMenu(false); logout(); }}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-black/5 transition-colors text-left"
-            >
-              <LogOut className="w-4 h-4 text-[#888] flex-shrink-0" />
-              <span className="text-sm font-semibold text-[#555]">退出登录</span>
-            </button>
-            {/* 关闭 */}
-            <button
-              onClick={() => setShowMobileMenu(false)}
-              className="w-full py-3 rounded-xl border border-black/10 text-xs font-bold text-[#888] hover:bg-black/5 transition-colors"
-            >
-              取消
-            </button>
-          </div>
-        </div>
-      )}
+
+              {/* 阶段导航 */}
+              <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+                {STAGES.map((stage) => (
+                  <button
+                    key={stage.id}
+                    onClick={() => { setCurrentStage(stage.id); setMobileSidebarOpen(false); }}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-200 text-left",
+                      currentStage === stage.id ? "shadow-md" : "hover:bg-black/5 text-brand-ink/60"
+                    )}
+                    style={{
+                      backgroundColor: currentStage === stage.id ? stage.color : undefined,
+                      color: currentStage === stage.id ? stage.textColor : undefined,
+                    }}
+                  >
+                    <div className={cn(
+                      "p-1.5 rounded-lg transition-colors",
+                      currentStage === stage.id ? "bg-white/40" : "bg-brand-ink/5"
+                    )}>
+                      {React.cloneElement(stage.icon as React.ReactElement, { className: "w-4 h-4" })}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{stage.label}</p>
+                      <p className={cn("text-[10px] leading-tight mt-0.5 font-medium", currentStage === stage.id ? "opacity-70" : "text-brand-ink/40")}>
+                        {stage.description}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </nav>
+
+              {/* 用户信息 + 操作 */}
+              <div className="p-4 border-t border-black/5 space-y-3">
+                <div className="flex items-center gap-3 px-1">
+                  <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                    <UserCircle className="w-5 h-5 text-brand-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-[#1a1a1a] truncate">{user.displayName || user.phone}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                      <span className="text-[10px] text-emerald-500 font-medium">AI Engine Ready</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setMobileSidebarOpen(false); setShowApiKeyModal(true); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-brand-primary/10 hover:bg-brand-primary/20 transition-colors text-left"
+                >
+                  <KeyRound className="w-4 h-4 text-brand-primary flex-shrink-0" />
+                  <span className="text-xs font-bold text-brand-primary">配置 API Key</span>
+                </button>
+                <button
+                  onClick={() => { setMobileSidebarOpen(false); logout(); }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-black/5 transition-colors text-left"
+                >
+                  <LogOut className="w-4 h-4 text-[#888] flex-shrink-0" />
+                  <span className="text-xs font-semibold text-[#555]">退出登录</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto relative bg-brand-bg no-scrollbar">
+        {/* 移动端汉堡菜单按钮 */}
+        <button
+          onClick={() => setMobileSidebarOpen(true)}
+          className="md:hidden fixed top-4 left-4 z-30 p-2 bg-brand-surface rounded-xl shadow-md border border-black/5 text-brand-ink/60 hover:text-brand-ink"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
         <div className="max-w-4xl mx-auto py-10 md:py-20 px-6 md:px-12 pb-32 md:pb-20">
           <AnimatePresence mode="wait">
             <motion.div

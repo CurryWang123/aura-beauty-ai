@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 type Tab = 'login' | 'register';
@@ -8,6 +9,7 @@ const PHONE_REGEX = /^1[3-9]\d{9}$/;
 
 export default function AuthPage() {
   const { login, register } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('login');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +31,10 @@ export default function AuthPage() {
     setLoading(true);
     try {
       if (tab === 'login') {
-        await login(trimmedPhone, password);
+        const role = await login(trimmedPhone, password);
+        if (role === 'admin') {
+          navigate('/admin', { replace: true });
+        }
       } else {
         await register(trimmedPhone, password, displayName.trim() || undefined);
       }

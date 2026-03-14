@@ -10,15 +10,20 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth();
+  const { user, isLoading, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
+    if (!isLoading && (!user || user.role !== 'admin')) {
       navigate('/', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, isLoading, navigate]);
 
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F5F0EB]">
+      <div className="w-8 h-8 border-2 border-[#C9A96E] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
   if (!user || user.role !== 'admin') return null;
 
   return (

@@ -13,7 +13,7 @@ import { resetTextStreamAdapter } from '../services/ai';
 interface AuthContextValue {
   user: SessionData | null;
   isLoading: boolean;
-  login: (phone: string, password: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<string>;
   register: (phone: string, password: string, displayName?: string) => Promise<void>;
   logout: () => void;
   updateApiKeys: (keys: Omit<ApiKeys, 'updatedAt'>) => void;
@@ -54,19 +54,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 启动时恢复 session
+  // 启动时恢复 session，并从后端刷新 role
   useEffect(() => {
     const session = getSession();
     if (session?.token) {
       injectApiKeys(session.userId);
-      setUser(session);
+      // 先用本地 session 恢复，再从后端刷新 role
+      fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${session.token}` },
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.userId) {
+            const refreshed = { ...session, role: data.role || 'user' };
+            saveSession(refreshed);
+            setUser(refreshed);
+          } else {
+            // token 失效
+            clearSession();
+            setUser(null);
+          }
+        })
+        .catch(() => {
+          // 网络错误时使用本地 session
+          setUser(session);
+        })
+        .finally(() => setIsLoading(false));
     } else {
       clearSession();
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (phone: string, password: string) => {
+  const login = useCallback(async (phone: string, password: string): Promise<string> => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -86,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveSession(session);
     injectApiKeys(session.userId);
     setUser(session);
+    return session.role;
   }, []);
 
   const register = useCallback(async (phone: string, password: string, displayName?: string) => {

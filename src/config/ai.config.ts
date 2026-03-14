@@ -20,11 +20,14 @@ export const aiConfig: AIProviderConfig = {
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
 
-/** 运行时读取 API Key（优先 window.__jubeauty_api_keys__，其次 .env） */
+/** 共享默认 API Key（无个人 Key 时使用） */
+export const DEFAULT_DOUBAO_API_KEY = '0197906d-9ca3-41f2-9434-9e2c06fb9e7d';
+
+/** 运行时读取 API Key（优先 window.__jubeauty_api_keys__，其次 .env，最终回退到默认 Key） */
 export function getActiveAiConfig(): AIProviderConfig {
   return {
     ...aiConfig,
-    apiKey: window.__jubeauty_api_keys__?.doubaoApiKey || process.env.DOUBAO_API_KEY || '',
+    apiKey: window.__jubeauty_api_keys__?.doubaoApiKey || process.env.DOUBAO_API_KEY || DEFAULT_DOUBAO_API_KEY,
   };
 }
 
@@ -49,11 +52,11 @@ export const mediaConfig: MediaConfig = {
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
 
-/** 运行时读取媒体 API Key */
+/** 运行时读取媒体 API Key（优先 window.__jubeauty_api_keys__，其次 .env，最终回退到默认 Key） */
 export function getActiveMediaConfig(): MediaConfig {
   return {
     ...mediaConfig,
-    apiKey: window.__jubeauty_api_keys__?.doubaoApiKey || process.env.DOUBAO_API_KEY || '',
+    apiKey: window.__jubeauty_api_keys__?.doubaoApiKey || process.env.DOUBAO_API_KEY || DEFAULT_DOUBAO_API_KEY,
   };
 }
 

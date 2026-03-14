@@ -11,7 +11,8 @@ export const generateBrandStrategyStream = async (prompt: string, systemInstruct
 
       重要提示：
       1. 请务必使用 Markdown 表格来展示分类数据、竞品对比、价位带分布等。
-      2. 如果涉及数值类数据（如市场份额、价格区间），请在回复末尾提供一个符合以下格式的 JSON 代码块，以便系统渲染图表：
+      2. 如果涉及数值类数据（如市场份额、价格区间），请在回复末尾提供一个符合以下格式的 JSON 代码块，以便系统渲染图表。
+         【重要】必须使用 \`\`\`chart-data 标记（不要用 \`\`\`json），系统只识别 chart-data 标记：
       \`\`\`chart-data
       {
         "type": "bar" | "pie" | "line",
