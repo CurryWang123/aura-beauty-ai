@@ -11,6 +11,26 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ProjectSnapshot {
+  timestamp: number;
+  name: string;
+  targetAudience: string;
+  salesChannels: string;
+  salesRegions: string;
+  painPoints: string;
+  coreValues: string;
+  marketAnalysis?: ChatMessage[];
+  brandStory?: ChatMessage[];
+  formulaDesign?: ChatMessage[];
+  visualIdentity?: ChatMessage[];
+  visualIdentityImage?: string;
+  packagingDesign?: ChatMessage[];
+  packagingImage?: string;
+  productionSpecs?: string;
+  productionDielineImage?: string;
+  marketingVideoUrl?: string;
+}
+
 export interface BrandProject {
   name: string;
   targetAudience: string;
@@ -18,14 +38,9 @@ export interface BrandProject {
   salesRegions: string;
   painPoints: string;
   coreValues: string;
-  
-  // History tracking
-  history: {
-    [key in BrandStage]?: any[];
-  };
-  currentVersion: {
-    [key in BrandStage]?: number;
-  };
+
+  // History tracking - array of full project snapshots
+  history: ProjectSnapshot[];
 
   marketAnalysis?: ChatMessage[];
   brandStory?: ChatMessage[];

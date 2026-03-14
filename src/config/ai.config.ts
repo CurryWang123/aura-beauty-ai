@@ -16,7 +16,7 @@ import type { AIProviderConfig, MediaConfig } from '../services/ai/types';
 export const aiConfig: AIProviderConfig = {
   provider: 'openai-compatible',
   apiKey: process.env.DOUBAO_API_KEY!,
-  model: 'doubao-seed-1-8-251228',
+  model: 'doubao-1-5-pro-32k-250115',
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
 
@@ -48,7 +48,7 @@ export const mediaConfig: MediaConfig = {
   provider: 'doubao',
   apiKey: process.env.DOUBAO_API_KEY!,
   imageModel: 'doubao-seedream-4-0-250828',
-  videoModel: 'doubao-seedance-1-0-pro-fast',
+  videoModel: 'doubao-seedance-1-0-pro-250528',
   baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
 };
 

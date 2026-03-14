@@ -58,7 +58,7 @@ import {
   Line,
   Legend
 } from 'recharts';
-import { BrandProject, BrandStage, ChatMessage } from './types';
+import { BrandProject, BrandStage, ChatMessage, ProjectSnapshot } from './types';
 import { 
   generateBrandStrategyStream, 
   generatePackagingDesign, 
@@ -84,7 +84,17 @@ const STAGES: { id: BrandStage; label: string; icon: React.ReactNode; descriptio
 function loadProject(storageKey: string): BrandProject {
   try {
     const saved = localStorage.getItem(storageKey);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // 兼容旧数据：如果 history 是对象格式（旧版），转为空数组
+      if (parsed.history && !Array.isArray(parsed.history)) {
+        parsed.history = [];
+      }
+      // 删除旧的 currentVersion 字段
+      delete parsed.currentVersion;
+      if (!parsed.history) parsed.history = [];
+      return parsed;
+    }
   } catch { /* ignore */ }
   return {
     name: '',
@@ -93,8 +103,7 @@ function loadProject(storageKey: string): BrandProject {
     salesRegions: '',
     painPoints: '',
     coreValues: '',
-    history: {},
-    currentVersion: {},
+    history: [],
   };
 }
 
@@ -112,8 +121,9 @@ export default function App() {
   const [isLocalLoading, setIsLocalLoading] = useState<Record<string, boolean>>({});
   const [loadingMsg, setLoadingMsg] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [viewingHistory, setViewingHistory] = useState<BrandStage | null>(null);
+  const [viewingHistory, setViewingHistory] = useState<boolean>(false);
   const [showQrCode, setShowQrCode] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // 停止流式生成
   const stopStreamRef = useRef(false);
@@ -174,90 +184,101 @@ export default function App() {
   // API Key 状态（有个人 Key 或默认共享 Key 时均视为已配置）
   const hasKey = !!(getMyApiKeys()?.doubaoApiKey) || true;
 
-  const startNewSession = (stage: BrandStage) => {
+  const startNewSession = () => {
+    setProject(prev => {
+      // 检查是否有内容值得保存
+      const hasContent = !!(prev.marketAnalysis || prev.brandStory || prev.formulaDesign ||
+        prev.visualIdentity || prev.packagingDesign || prev.marketingVideoUrl);
+
+      const snapshot: ProjectSnapshot = {
+        timestamp: Date.now(),
+        name: prev.name,
+        targetAudience: prev.targetAudience,
+        salesChannels: prev.salesChannels,
+        salesRegions: prev.salesRegions,
+        painPoints: prev.painPoints,
+        coreValues: prev.coreValues,
+        marketAnalysis: prev.marketAnalysis,
+        brandStory: prev.brandStory,
+        formulaDesign: prev.formulaDesign,
+        visualIdentity: prev.visualIdentity,
+        visualIdentityImage: prev.visualIdentityImage,
+        packagingDesign: prev.packagingDesign,
+        packagingImage: prev.packagingImage,
+        productionSpecs: prev.productionSpecs,
+        productionDielineImage: prev.productionDielineImage,
+        marketingVideoUrl: prev.marketingVideoUrl,
+      };
+
+      return {
+        ...prev,
+        // 清空所有阶段数据
+        marketAnalysis: undefined,
+        brandStory: undefined,
+        formulaDesign: undefined,
+        visualIdentity: undefined,
+        visualIdentityImage: undefined,
+        packagingDesign: undefined,
+        packagingImage: undefined,
+        productionSpecs: undefined,
+        productionDielineImage: undefined,
+        marketingVideoUrl: undefined,
+        packagingReferenceImage: undefined,
+        marketingVideoReferenceImage: undefined,
+        history: hasContent ? [...prev.history, snapshot] : prev.history,
+      };
+    });
+    setCurrentStage('market-analysis');
+    setCustomInputs({});
+  };
+
+  const switchVersion = (index: number) => {
+    setProject(prev => {
+      const snapshot = prev.history[index];
+      if (!snapshot) return prev;
+      return {
+        ...prev,
+        name: snapshot.name,
+        targetAudience: snapshot.targetAudience,
+        salesChannels: snapshot.salesChannels,
+        salesRegions: snapshot.salesRegions,
+        painPoints: snapshot.painPoints,
+        coreValues: snapshot.coreValues,
+        marketAnalysis: snapshot.marketAnalysis,
+        brandStory: snapshot.brandStory,
+        formulaDesign: snapshot.formulaDesign,
+        visualIdentity: snapshot.visualIdentity,
+        visualIdentityImage: snapshot.visualIdentityImage,
+        packagingDesign: snapshot.packagingDesign,
+        packagingImage: snapshot.packagingImage,
+        productionSpecs: snapshot.productionSpecs,
+        productionDielineImage: snapshot.productionDielineImage,
+        marketingVideoUrl: snapshot.marketingVideoUrl,
+      };
+    });
+  };
+
+  const STAGE_ORDER: BrandStage[] = ['market-analysis', 'brand-story', 'formula-design', 'visual-identity', 'packaging-design', 'marketing-video'];
+
+  const clearSubsequentStages = (fromStage: BrandStage) => {
+    const fromIndex = STAGE_ORDER.indexOf(fromStage);
+    const stagesToClear = STAGE_ORDER.slice(fromIndex);
     setProject(prev => {
       const next = { ...prev };
-      const currentData: any = {};
-      
-      // Capture current stage data
-      if (stage === 'market-analysis') currentData.marketAnalysis = prev.marketAnalysis;
-      if (stage === 'brand-story') currentData.brandStory = prev.brandStory;
-      if (stage === 'formula-design') currentData.formulaDesign = prev.formulaDesign;
-      if (stage === 'visual-identity') {
-        currentData.visualIdentity = prev.visualIdentity;
-        currentData.visualIdentityImage = prev.visualIdentityImage;
-      }
-      if (stage === 'packaging-design') {
-        currentData.packagingDesign = prev.packagingDesign;
-        currentData.packagingImage = prev.packagingImage;
-      }
-      if (stage === 'marketing-video') currentData.marketingVideoUrl = prev.marketingVideoUrl;
-
-      // Add to history if it has content
-      const hasContent = Object.values(currentData).some(v => v !== undefined && v !== null);
-      if (hasContent) {
-        const stageHistory = prev.history[stage] || [];
-        next.history = {
-          ...prev.history,
-          [stage]: [...stageHistory, { ...currentData, timestamp: Date.now() }]
-        };
-      }
-
-      // Clear current stage data
-      if (stage === 'market-analysis') next.marketAnalysis = undefined;
-      if (stage === 'brand-story') next.brandStory = undefined;
-      if (stage === 'formula-design') next.formulaDesign = undefined;
-      if (stage === 'visual-identity') {
+      if (stagesToClear.includes('market-analysis')) next.marketAnalysis = undefined;
+      if (stagesToClear.includes('brand-story')) next.brandStory = undefined;
+      if (stagesToClear.includes('formula-design')) next.formulaDesign = undefined;
+      if (stagesToClear.includes('visual-identity')) {
         next.visualIdentity = undefined;
         next.visualIdentityImage = undefined;
       }
-      if (stage === 'packaging-design') {
+      if (stagesToClear.includes('packaging-design')) {
         next.packagingDesign = undefined;
         next.packagingImage = undefined;
+        next.productionSpecs = undefined;
+        next.productionDielineImage = undefined;
       }
-      if (stage === 'marketing-video') next.marketingVideoUrl = undefined;
-
-      next.currentVersion = { ...prev.currentVersion, [stage]: undefined };
-      return next;
-    });
-    // Clear custom inputs for this stage
-    setCustomInputs(prev => ({ ...prev, [stage]: '' }));
-  };
-
-  const switchVersion = (stage: BrandStage, index: number | 'current') => {
-    setProject(prev => {
-      const next = { ...prev };
-      const stageHistory = prev.history[stage] || [];
-      
-      // If switching from current to a history version, we might want to save current first?
-      // For simplicity, let's assume "New" button handles saving.
-      
-      let targetData;
-      if (index === 'current') {
-        // This logic is a bit tricky if we cleared it. 
-        // Usually we'd just stay in the current "new" session.
-        return prev;
-      } else {
-        targetData = stageHistory[index];
-      }
-
-      if (targetData) {
-        if (stage === 'market-analysis') next.marketAnalysis = targetData.marketAnalysis;
-        if (stage === 'brand-story') next.brandStory = targetData.brandStory;
-        if (stage === 'formula-design') next.formulaDesign = targetData.formulaDesign;
-        if (stage === 'visual-identity') {
-          next.visualIdentity = targetData.visualIdentity;
-          next.visualIdentityImage = targetData.visualIdentityImage;
-        }
-        if (stage === 'packaging-design') {
-          next.packagingDesign = targetData.packagingDesign;
-          next.packagingImage = targetData.packagingImage;
-        }
-        if (stage === 'marketing-video') next.marketingVideoUrl = targetData.marketingVideoUrl;
-        
-        next.currentVersion = { ...prev.currentVersion, [stage]: index };
-      }
-
+      if (stagesToClear.includes('marketing-video')) next.marketingVideoUrl = undefined;
       return next;
     });
   };
@@ -266,14 +287,22 @@ export default function App() {
     streamPromise: Promise<any>,
     updateFn: (content: string) => void
   ) => {
+    const THROTTLE_MS = 50;
+    let lastUpdateTime = 0;
     stopStreamRef.current = false;
     const stream = await streamPromise;
     let fullContent = '';
     for await (const chunk of stream) {
       if (stopStreamRef.current) break;
       fullContent += chunk.text;
-      updateFn(fullContent);
+      const now = Date.now();
+      if (now - lastUpdateTime >= THROTTLE_MS) {
+        lastUpdateTime = now;
+        updateFn(fullContent);
+      }
     }
+    // 确保最终内容被更新
+    updateFn(fullContent);
     stopStreamRef.current = false;
     return fullContent;
   };
@@ -447,7 +476,7 @@ export default function App() {
       setProject(prev => ({ ...prev, brandStory: [{ role: 'assistant', content: '正在构思品牌故事...' }] }));
       
       await handleStreamingResponse(
-        generateBrandStrategyStream(prompt, "You are a creative brand storyteller specializing in luxury beauty."),
+        generateBrandStrategyStream(prompt, "You are a creative brand storyteller specializing in luxury beauty. Output only narrative text, slogans, and markdown formatting. Do NOT output any JSON, code blocks, or chart data."),
         (content) => {
           setProject(prev => ({ ...prev, brandStory: [{ role: 'assistant', content }] }));
         }
@@ -598,9 +627,11 @@ export default function App() {
     try {
       const lastStory = project.brandStory?.[project.brandStory.length - 1]?.content || '优雅高端';
       const lastVI = project.visualIdentity?.[project.visualIdentity.length - 1]?.content || '粉紫渐变科技感';
-      const context = `品牌故事: ${lastStory}, 视觉参考: ${lastVI}`;
+      const lastPackaging = project.packagingDesign?.[project.packagingDesign.length - 1]?.content || '';
+      const context = `品牌故事: ${lastStory}, 视觉参考: ${lastVI}${lastPackaging ? `, 包装设计参考: ${lastPackaging.slice(0, 200)}` : ''}`;
       const prompt = `品牌 "${project.name}" 的产品推广视频。${context}。${customInputs['marketing-video'] ? `额外要求: ${customInputs['marketing-video']}` : ''}`;
-      const videoUrl = await generateMarketingVideo(prompt, (msg) => setLoadingMsg(msg), project.marketingVideoReferenceImage);
+      const referenceImage = project.marketingVideoReferenceImage || project.packagingImage;
+      const videoUrl = await generateMarketingVideo(prompt, (msg) => setLoadingMsg(msg), referenceImage);
       setProject(prev => ({ ...prev, marketingVideoUrl: videoUrl }));
     } catch (err) {
       setError('视频生成失败');
@@ -648,65 +679,63 @@ export default function App() {
   );
 
   // 精简的历史入口，在尚无内容的阶段顶部显示
-  const HistoryEntry = ({ stage }: { stage: BrandStage }) => {
-    const stageHistory = project.history[stage] || [];
-    if (stageHistory.length === 0) return null;
+  const HistoryEntry = () => {
+    if (project.history.length === 0) return null;
     return (
       <button
-        onClick={() => setViewingHistory(stage)}
+        onClick={() => setViewingHistory(true)}
         className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-accent hover:bg-brand-accent/80 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-primary transition-all border border-brand-primary/10"
       >
-        <HistoryIcon className="w-3.5 h-3.5" /> 历史记录 ({stageHistory.length} 个版本) / History
+        <HistoryIcon className="w-3.5 h-3.5" /> 项目历史 ({project.history.length} 个快照) / History
       </button>
     );
   };
 
-  const HistoryControls = ({ stage }: { stage: BrandStage }) => {
-    const stageHistory = project.history[stage] || [];
-    
+  const handleResetCurrentStage = () => {
+    setProject(prev => {
+      const next = { ...prev };
+      switch (currentStage) {
+        case 'market-analysis': next.marketAnalysis = undefined; break;
+        case 'brand-story': next.brandStory = undefined; break;
+        case 'formula-design': next.formulaDesign = undefined; break;
+        case 'visual-identity': next.visualIdentity = undefined; next.visualIdentityImage = undefined; break;
+        case 'packaging-design':
+          next.packagingDesign = undefined;
+          next.packagingImage = undefined;
+          next.productionSpecs = undefined;
+          next.productionDielineImage = undefined;
+          break;
+        case 'marketing-video': next.marketingVideoUrl = undefined; break;
+      }
+      return next;
+    });
+    setCustomInputs(prev => { const next = { ...prev }; delete next[currentStage]; return next; });
+    setRefinementInputs(prev => { const next = { ...prev }; delete next[currentStage]; return next; });
+  };
+
+  const HistoryControls = () => {
     return (
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2">
-          <button 
-            onClick={() => startNewSession(stage)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-surface hover:bg-black/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-ink/40 transition-all border border-black/5 w-full"
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={() => startNewSession()}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-surface hover:bg-black/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-ink/40 transition-all border border-black/5 w-full"
+        >
+          <Plus className="w-3.5 h-3.5" /> 新建项目 / New Project
+        </button>
+        <button
+          onClick={handleResetCurrentStage}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-amber-600 transition-all border border-amber-200/60 w-full"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> 重置此步骤 / Reset Step
+        </button>
+
+        {project.history.length > 0 && (
+          <button
+            onClick={() => setViewingHistory(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-accent hover:bg-brand-accent/80 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-primary transition-all border border-brand-primary/10 w-full"
           >
-            <Plus className="w-3.5 h-3.5" /> 新建会话 / New Session
+            <HistoryIcon className="w-3.5 h-3.5" /> 项目历史 ({project.history.length}) / History
           </button>
-          
-          {stageHistory.length > 0 && (
-            <button 
-              onClick={() => setViewingHistory(stage)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-accent hover:bg-brand-accent/80 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-primary transition-all border border-brand-primary/10 w-full"
-            >
-              <HistoryIcon className="w-3.5 h-3.5" /> 历史记录 / History
-            </button>
-          )}
-        </div>
-        
-        {stageHistory.length > 0 && (
-          <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
-            <span className="text-[10px] font-black uppercase tracking-widest text-brand-ink/20 whitespace-nowrap">版本 / Versions:</span>
-            {stageHistory.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => switchVersion(stage, idx)}
-                className={cn(
-                  "px-3 py-1 rounded-lg text-[10px] font-bold transition-all whitespace-nowrap",
-                  project.currentVersion[stage] === idx 
-                    ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20" 
-                    : "bg-brand-surface text-brand-ink/40 hover:bg-black/5"
-                )}
-              >
-                V{idx + 1}
-              </button>
-            ))}
-            {project.currentVersion[stage] === undefined && (
-              <div className="px-3 py-1 rounded-lg text-[10px] font-bold bg-brand-accent text-brand-primary border border-brand-primary/10">
-                当前 / Current
-              </div>
-            )}
-          </div>
         )}
       </div>
     );
@@ -751,9 +780,9 @@ export default function App() {
             )}>
               <div className={cn(
                 "max-w-[85%] p-8 rounded-[2rem]",
-                msg.role === 'user' 
-                  ? "bg-brand-accent text-brand-primary border border-brand-primary/5" 
-                  : "brand-card markdown-body"
+                msg.role === 'user'
+                  ? "bg-brand-accent text-brand-primary border border-brand-primary/5"
+                  : "brand-card markdown-body min-h-[60px]"
               )}>
                 {msg.role === 'user' ? (
                   <p className="text-sm font-medium">{msg.content}</p>
@@ -819,41 +848,46 @@ export default function App() {
 
   const ChatHistory = ({ messages }: { messages: ChatMessage[] }) => (
     <div className="space-y-6">
-      {messages.map((msg, idx) => (
-        <div key={idx} className={cn(
-          "flex flex-col gap-2",
-          msg.role === 'user' ? "items-end" : "items-start"
-        )}>
-          <div className={cn(
-            "max-w-[85%] p-8 rounded-[2rem]",
-            msg.role === 'user' 
-              ? "bg-brand-accent text-brand-primary border border-brand-primary/5" 
-              : "brand-card markdown-body"
+      {messages.map((msg, idx) => {
+        // 过滤掉图表 JSON 块，避免在非市场分析 stage 原文显示
+        const content = msg.role === 'assistant'
+          ? msg.content.replace(/```(?:chart-data|json)\n[\s\S]*?\n```/g, '').trim()
+          : msg.content;
+        return (
+          <div key={idx} className={cn(
+            "flex flex-col gap-2",
+            msg.role === 'user' ? "items-end" : "items-start"
           )}>
-            {msg.role === 'user' ? (
-              <p className="text-sm font-medium">{msg.content}</p>
-            ) : (
-              <Markdown>{msg.content}</Markdown>
-            )}
+            <div className={cn(
+              "max-w-[85%] p-8 rounded-[2rem]",
+              msg.role === 'user'
+                ? "bg-brand-accent text-brand-primary border border-brand-primary/5"
+                : "brand-card markdown-body min-h-[60px]"
+            )}>
+              {msg.role === 'user' ? (
+                <p className="text-sm font-medium">{content}</p>
+              ) : (
+                <Markdown>{content}</Markdown>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
-  const HistoryView = ({ stage }: { stage: BrandStage }) => {
-    const stageHistory = project.history[stage] || [];
-    const stageLabel = STAGES.find(s => s.id === stage)?.label;
-    const stageInfo = STAGES.find(s => s.id === stage);
+  const HistoryView = () => {
     const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-    const getVersionSummary = (version: any): string => {
-      const messages = version.marketAnalysis || version.brandStory || version.formulaDesign || version.visualIdentity || version.packagingDesign;
-      if (messages && messages.length > 0) {
-        const lastAssistant = [...messages].reverse().find((m: any) => m.role === 'assistant');
-        if (lastAssistant) return lastAssistant.content.slice(0, 60).replace(/[#*\n]/g, '') + '...';
-      }
-      return '历史版本';
+    const getCompletedStages = (snapshot: ProjectSnapshot): string => {
+      const completed: string[] = [];
+      if (snapshot.marketAnalysis?.length) completed.push('市场');
+      if (snapshot.brandStory?.length) completed.push('故事');
+      if (snapshot.formulaDesign?.length) completed.push('配方');
+      if (snapshot.visualIdentity?.length) completed.push('视觉');
+      if (snapshot.packagingDesign?.length) completed.push('包装');
+      if (snapshot.marketingVideoUrl) completed.push('视频');
+      return completed.length > 0 ? completed.join('·') : '空项目';
     };
 
     const formatTimeAgo = (timestamp: number): string => {
@@ -878,14 +912,22 @@ export default function App() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setViewingHistory(null); setExpandedIdx(null); }}
+              onClick={() => { setViewingHistory(false); setExpandedIdx(null); }}
               className="flex items-center gap-2 text-brand-ink/40 hover:text-brand-ink transition-colors text-sm font-medium"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <h3 className="text-xl font-bold text-brand-primary tracking-tight">{stageLabel} 历史记录</h3>
+            <h3 className="text-xl font-bold text-brand-primary tracking-tight">项目历史记录</h3>
           </div>
-          <span className="text-brand-ink/30 text-xs">{stageHistory.length} 个版本</span>
+          <div className="flex items-center gap-3">
+            <span className="text-brand-ink/30 text-xs">{project.history.length} 个快照</span>
+            <button
+              onClick={() => { startNewSession(); setViewingHistory(false); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-surface hover:bg-black/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-ink/40 transition-all border border-black/5"
+            >
+              <Plus className="w-3 h-3" /> 新建项目
+            </button>
+          </div>
         </div>
 
         {/* 详情视图 */}
@@ -904,84 +946,147 @@ export default function App() {
               </button>
               <button
                 onClick={() => {
-                  switchVersion(stage, expandedIdx);
-                  setViewingHistory(null);
+                  switchVersion(expandedIdx);
+                  setViewingHistory(false);
                   setExpandedIdx(null);
+                  setCurrentStage('market-analysis');
                 }}
-                className="px-5 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg hover:scale-105 transition-all"
+                className="px-5 py-2 bg-brand-primary text-white rounded-xl text-xs font-bold shadow-lg md:hover:scale-105 transition-all"
               >
-                恢复此版本
+                恢复此项目
               </button>
             </div>
 
-            <div className="brand-card p-8 space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-black/5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold" style={{ backgroundColor: stageInfo?.color, color: stageInfo?.textColor }}>
-                  V{expandedIdx + 1}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-brand-ink">版本 {expandedIdx + 1}</p>
-                  <p className="text-[10px] text-brand-ink/30">{new Date(stageHistory[expandedIdx].timestamp).toLocaleString()}</p>
-                </div>
-              </div>
+            {(() => {
+              const snapshot = project.history[expandedIdx];
+              return (
+                <div className="brand-card p-8 space-y-6">
+                  <div className="flex items-center gap-3 pb-4 border-b border-black/5">
+                    <div className="w-8 h-8 rounded-lg bg-brand-primary/10 flex items-center justify-center text-xs font-bold text-brand-primary">
+                      #{expandedIdx + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-brand-ink">{snapshot.name || '未命名项目'}</p>
+                      <p className="text-[10px] text-brand-ink/30">{new Date(snapshot.timestamp).toLocaleString()} · {getCompletedStages(snapshot)}</p>
+                    </div>
+                  </div>
 
-              <div>
-                {(() => {
-                  const version = stageHistory[expandedIdx];
-                  return (
-                    <>
-                      {stage === 'market-analysis' && version.marketAnalysis && <MarketAnalysisResult messages={version.marketAnalysis} />}
-                      {stage === 'brand-story' && version.brandStory && <ChatHistory messages={version.brandStory} />}
-                      {stage === 'formula-design' && version.formulaDesign && <ChatHistory messages={version.formulaDesign} />}
-                      {stage === 'visual-identity' && version.visualIdentity && (
-                        <div className="space-y-10">
-                          {version.visualIdentityImage && <img src={version.visualIdentityImage} className="w-full rounded-[2.5rem] shadow-xl" />}
-                          <ChatHistory messages={version.visualIdentity} />
+                  <div className="space-y-10">
+                    {snapshot.marketAnalysis?.length && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-ink/30 mb-4">市场分析</p>
+                        <MarketAnalysisResult messages={snapshot.marketAnalysis} />
+                      </div>
+                    )}
+                    {snapshot.brandStory?.length && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-ink/30 mb-4">品牌故事</p>
+                        <ChatHistory messages={snapshot.brandStory} />
+                      </div>
+                    )}
+                    {snapshot.formulaDesign?.length && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-ink/30 mb-4">配方设计</p>
+                        <ChatHistory messages={snapshot.formulaDesign} />
+                      </div>
+                    )}
+                    {snapshot.visualIdentity?.length && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-ink/30 mb-4">视觉识别</p>
+                        {snapshot.visualIdentityImage && (
+                          <img
+                            src={snapshot.visualIdentityImage}
+                            className="w-full rounded-[2.5rem] shadow-xl mb-6 cursor-zoom-in"
+                            onClick={() => setPreviewImage(snapshot.visualIdentityImage!)}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        )}
+                        <ChatHistory messages={snapshot.visualIdentity} />
+                      </div>
+                    )}
+                    {snapshot.packagingDesign?.length && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-ink/30 mb-4">包装设计</p>
+                        <ChatHistory messages={snapshot.packagingDesign} />
+                        {snapshot.packagingImage && (
+                          <img
+                            src={snapshot.packagingImage}
+                            className="w-full rounded-[2.5rem] shadow-xl mt-6 cursor-zoom-in"
+                            onClick={() => setPreviewImage(snapshot.packagingImage!)}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        )}
+                      </div>
+                    )}
+                    {(snapshot.productionSpecs || snapshot.productionDielineImage) && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-ink/30 mb-4">生产规范</p>
+                        {snapshot.productionDielineImage && (
+                          <img
+                            src={snapshot.productionDielineImage}
+                            className="w-full rounded-[2.5rem] shadow-xl mb-4 cursor-zoom-in"
+                            onClick={() => setPreviewImage(snapshot.productionDielineImage!)}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        )}
+                        {snapshot.productionSpecs && (
+                          <div className="brand-card p-6 markdown-body text-sm line-clamp-10 overflow-hidden">
+                            <Markdown>{snapshot.productionSpecs.slice(0, 800)}</Markdown>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {snapshot.marketingVideoUrl && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-brand-ink/30 mb-4">营销视频</p>
+                        <div className="aspect-video w-full rounded-[2rem] overflow-hidden bg-black">
+                          <video src={snapshot.marketingVideoUrl} controls className="w-full h-full object-cover" />
                         </div>
-                      )}
-                      {stage === 'packaging-design' && version.packagingDesign && (
-                        <div className="space-y-10">
-                          <ChatHistory messages={version.packagingDesign} />
-                          {version.packagingImage && <img src={version.packagingImage} className="w-full rounded-[2.5rem] shadow-xl" />}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </motion.div>
         ) : (
           /* 列表视图 */
           <div className="brand-card overflow-hidden">
             {/* 表头 */}
             <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-6 py-3 border-b border-black/5 text-[10px] font-black uppercase tracking-widest text-brand-ink/30">
-              <span>名称</span>
-              <span className="w-28 text-center">阶段</span>
-              <span className="w-32 text-right">更新时间</span>
+              <span>项目名称</span>
+              <span className="w-28 text-center">完成阶段</span>
+              <span className="w-32 text-right">保存时间</span>
             </div>
 
             {/* 列表 */}
-            {stageHistory.map((version, idx) => (
-              <div
-                key={idx}
-                onClick={() => setExpandedIdx(idx)}
-                className="grid grid-cols-[1fr_auto_auto] gap-4 items-center px-6 py-4 border-b border-black/[0.03] last:border-b-0 hover:bg-brand-surface/60 cursor-pointer transition-colors group"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText className="w-4 h-4 text-brand-ink/20 shrink-0" />
-                  <span className="text-sm text-brand-ink truncate">
-                    版本 {idx + 1} — {getVersionSummary(version)}
-                  </span>
-                </div>
-                <span className="w-28 text-center text-[10px] font-bold uppercase tracking-wider text-brand-ink/30 px-2 py-1 rounded-md bg-brand-surface">
-                  {stageLabel}
-                </span>
-                <span className="w-32 text-right text-xs text-brand-ink/30">
-                  {formatTimeAgo(version.timestamp)}
-                </span>
-              </div>
-            ))}
+            {project.history.length === 0 ? (
+              <div className="px-6 py-12 text-center text-brand-ink/30 text-sm">暂无历史记录</div>
+            ) : (
+              [...project.history].reverse().map((snapshot, reversedIdx) => {
+                const idx = project.history.length - 1 - reversedIdx;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setExpandedIdx(idx)}
+                    className="grid grid-cols-[1fr_auto_auto] gap-4 items-center px-6 py-4 border-b border-black/[0.03] last:border-b-0 hover:bg-brand-surface/60 cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FileText className="w-4 h-4 text-brand-ink/20 shrink-0" />
+                      <span className="text-sm text-brand-ink truncate font-medium">
+                        {snapshot.name || '未命名项目'}
+                      </span>
+                    </div>
+                    <span className="w-28 text-center text-[10px] font-bold uppercase tracking-wider text-brand-ink/30 px-2 py-1 rounded-md bg-brand-surface truncate">
+                      {getCompletedStages(snapshot)}
+                    </span>
+                    <span className="w-32 text-right text-xs text-brand-ink/30">
+                      {formatTimeAgo(snapshot.timestamp)}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </motion.div>
@@ -1015,7 +1120,7 @@ export default function App() {
           <button
             onClick={() => handleRefine(stage)}
             disabled={!refinementInputs[stage]}
-            className="px-6 brand-button-primary shadow-lg disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 font-bold text-xs"
+            className="px-6 brand-button-primary shadow-lg disabled:opacity-50 transition-all md:hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2 font-bold text-xs"
           >
             <RefreshCw className="w-4 h-4" />
             发送
@@ -1027,7 +1132,7 @@ export default function App() {
 
   const renderStageInput = (stage: BrandStage, label: string, runFn: () => void, imageField?: 'packagingReferenceImage' | 'marketingVideoReferenceImage') => (
     <div className="brand-card p-8 space-y-6">
-      <HistoryEntry stage={stage} />
+      <HistoryEntry />
       <div>
         <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-ink/30 mb-3">{label}</label>
         <textarea 
@@ -1043,7 +1148,7 @@ export default function App() {
       <button 
         onClick={runFn}
         disabled={isLocalLoading[stage]}
-        className="w-full py-4 font-black flex items-center justify-center gap-2 shadow-xl hover:scale-[1.01] transition-all disabled:opacity-50 rounded-full"
+        className="w-full py-4 font-black flex items-center justify-center gap-2 shadow-xl md:hover:scale-[1.01] transition-all disabled:opacity-50 rounded-full"
         style={{ 
           backgroundColor: STAGES.find(s => s.id === stage)?.color,
           color: STAGES.find(s => s.id === stage)?.textColor
@@ -1058,24 +1163,30 @@ export default function App() {
   const renderNextStepButton = (nextStage: BrandStage, label: string) => {
     const nextStageInfo = STAGES.find(s => s.id === nextStage);
     return (
-      <div className="mt-12 pt-8 border-t border-brand-ink/5 flex items-center justify-between">
-        <HistoryControls stage={currentStage} />
-        <button 
-          onClick={() => setCurrentStage(nextStage)}
-          className="flex items-center gap-4 px-8 py-4 rounded-2xl font-black text-lg group transition-all shadow-lg hover:scale-105 active:scale-95"
-          style={{ 
-            backgroundColor: nextStageInfo?.color,
-            color: nextStageInfo?.textColor
-          }}
-        >
-          {label} <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
-        </button>
+      <div className="mt-12 pt-8 border-t border-brand-ink/5">
+        {/* 桌面端：左右排列；移动端：垂直堆叠 */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <HistoryControls />
+          <button
+            onClick={() => {
+              clearSubsequentStages(nextStage);
+              setCurrentStage(nextStage);
+            }}
+            className="w-full md:w-auto flex items-center justify-center gap-4 px-8 py-4 rounded-2xl font-black text-base md:text-lg group transition-all shadow-lg md:hover:scale-105 active:scale-95"
+            style={{
+              backgroundColor: nextStageInfo?.color,
+              color: nextStageInfo?.textColor
+            }}
+          >
+            {label} <ArrowRight className="w-5 h-5 md:w-6 md:h-6 group-hover:translate-x-2 transition-transform" />
+          </button>
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-brand-bg">
+    <div className="flex flex-col md:flex-row h-dvh md:h-screen md:overflow-hidden bg-brand-bg">
       {/* Sidebar / Bottom Nav */}
       <aside className="w-full md:w-80 border-t md:border-t-0 md:border-r flex flex-col bg-brand-surface order-last md:order-first z-30">
         <div className="hidden md:block p-8">
@@ -1273,7 +1384,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto relative bg-brand-bg no-scrollbar">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative bg-brand-bg no-scrollbar" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'none' }}>
         {/* 移动端汉堡菜单按钮 */}
         <button
           onClick={() => setMobileSidebarOpen(true)}
@@ -1284,14 +1395,14 @@ export default function App() {
         <div className="max-w-4xl mx-auto py-10 md:py-20 px-6 md:px-12 pb-32 md:pb-20">
           <AnimatePresence mode="wait">
             <motion.div
-              key={viewingHistory ? `history-${viewingHistory}` : currentStage}
+              key={viewingHistory ? 'history' : currentStage}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             >
               {viewingHistory ? (
-                <HistoryView stage={viewingHistory} />
+                <HistoryView />
               ) : (
                 <>
                   {/* Header */}
@@ -1331,7 +1442,7 @@ export default function App() {
                       <div className="space-y-8">
                         {!project.marketAnalysis && !isLocalLoading['market-analysis'] && (
                           <div className="brand-card p-10 space-y-8">
-                            <HistoryEntry stage="market-analysis" />
+                            <HistoryEntry />
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 items-end">
                               <div>
                                 <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-ink/30 mb-2 md:mb-3">品牌名称 / Brand Name</label>
@@ -1399,7 +1510,7 @@ export default function App() {
                         <button 
                           onClick={runAnalysis}
                           disabled={isLocalLoading['market-analysis']}
-                          className="w-full py-5 brand-button-primary text-lg shadow-2xl shadow-brand-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                          className="w-full py-5 brand-button-primary text-lg shadow-2xl shadow-brand-primary/20 flex items-center justify-center gap-3 md:hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                         >
                           {isLocalLoading['market-analysis'] ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
                           启动全链路品牌孵化
@@ -1408,7 +1519,7 @@ export default function App() {
                     )}
                         {(project.marketAnalysis || isLocalLoading['market-analysis']) && (
                           <div className="space-y-10">
-                            <HistoryControls stage="market-analysis" />
+                            <HistoryControls />
                             {isLocalLoading['market-analysis'] && !project.marketAnalysis && <LocalLoader message="正在分析市场动态..." />}
                             {project.marketAnalysis && <MarketAnalysisResult messages={project.marketAnalysis} />}
                             {renderRefinementInput('market-analysis')}
@@ -1423,7 +1534,7 @@ export default function App() {
                     {!project.brandStory && !isLocalLoading['brand-story'] && renderStageInput('brand-story', '品牌故事需求', runStorytelling)}
                     {(project.brandStory || isLocalLoading['brand-story']) && (
                       <div className="space-y-10">
-                        <HistoryControls stage="brand-story" />
+                        <HistoryControls />
                         {isLocalLoading['brand-story'] && !project.brandStory && <LocalLoader message="正在构思品牌故事..." />}
                         {project.brandStory && <ChatHistory messages={project.brandStory} />}
                         {renderRefinementInput('brand-story')}
@@ -1438,7 +1549,7 @@ export default function App() {
                     {!project.formulaDesign && !isLocalLoading['formula-design'] && renderStageInput('formula-design', '配方场景与需求描述', runFormulaDesign)}
                     {(project.formulaDesign || isLocalLoading['formula-design']) && (
                       <div className="space-y-10">
-                        <HistoryControls stage="formula-design" />
+                        <HistoryControls />
                         {isLocalLoading['formula-design'] && !project.formulaDesign && <LocalLoader message="正在研发配方..." />}
                         {project.formulaDesign && <ChatHistory messages={project.formulaDesign} />}
                         {renderRefinementInput('formula-design')}
@@ -1453,14 +1564,15 @@ export default function App() {
                     {!project.visualIdentity && !isLocalLoading['visual-identity'] && renderStageInput('visual-identity', '视觉设计需求', runVisualIdentity)}
                     {(project.visualIdentity || isLocalLoading['visual-identity']) && (
                       <div className="space-y-10">
-                        <HistoryControls stage="visual-identity" />
+                        <HistoryControls />
                         {isLocalLoading['visual-identity'] && !project.visualIdentity && <LocalLoader message="正在设计视觉系统..." />}
                         {project.visualIdentityImage && (
                           <div className="relative group overflow-hidden rounded-[2.5rem] shadow-2xl">
-                            <img 
-                              src={project.visualIdentityImage} 
-                              alt="Visual Identity Moodboard" 
-                              className="w-full transition-transform duration-700 group-hover:scale-105"
+                            <img
+                              src={project.visualIdentityImage}
+                              alt="Visual Identity Moodboard"
+                              className="w-full transition-transform duration-700 group-hover:scale-105 cursor-zoom-in"
+                              onClick={() => setPreviewImage(project.visualIdentityImage!)}
                             />
                             <div className="absolute top-6 left-6 px-4 py-2 bg-white/90 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-brand-primary">
                               视觉概念图 / Visual Concept
@@ -1480,16 +1592,17 @@ export default function App() {
                     {!project.packagingDesign && !isLocalLoading['packaging-design'] && renderStageInput('packaging-design', '包装设计需求', runPackaging, 'packagingReferenceImage')}
                     {(project.packagingDesign || isLocalLoading['packaging-design']) && (
                       <div className="space-y-10">
-                        <HistoryControls stage="packaging-design" />
+                        <HistoryControls />
                         {isLocalLoading['packaging-design'] && !project.packagingDesign && <LocalLoader message="正在设计包装方案..." />}
                         {project.packagingDesign && <ChatHistory messages={project.packagingDesign} />}
                         
                         {project.packagingImage && (
                           <div className="relative group overflow-hidden rounded-[2.5rem] shadow-2xl">
-                            <img 
-                              src={project.packagingImage} 
-                              alt="Packaging Design" 
-                              className="w-full transition-transform duration-700 group-hover:scale-105"
+                            <img
+                              src={project.packagingImage}
+                              alt="Packaging Design"
+                              className="w-full transition-transform duration-700 group-hover:scale-105 cursor-zoom-in"
+                              onClick={() => setPreviewImage(project.packagingImage!)}
                             />
                             <div className="absolute inset-0 bg-brand-primary/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <button 
@@ -1531,10 +1644,11 @@ export default function App() {
 
                               {project.productionDielineImage && (
                                 <div className="relative group overflow-hidden rounded-[2.5rem] shadow-2xl bg-white p-8 border border-black/5">
-                                  <img 
-                                    src={project.productionDielineImage} 
-                                    alt="Technical Dieline" 
-                                    className="w-full h-auto object-contain"
+                                  <img
+                                    src={project.productionDielineImage}
+                                    alt="Technical Dieline"
+                                    className="w-full h-auto object-contain cursor-zoom-in"
+                                    onClick={() => setPreviewImage(project.productionDielineImage!)}
                                   />
                                   <div className="absolute top-6 left-6 px-4 py-2 bg-white/90 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-widest text-brand-primary">
                                     技术刀版图 / Technical Dieline
@@ -1664,6 +1778,34 @@ export default function App() {
               <AlertCircle className="w-6 h-6" />
               <span className="font-bold">{error}</span>
               <button onClick={() => setError(null)} className="ml-6 text-white/60 hover:text-white">✕</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Image Preview Lightbox */}
+        <AnimatePresence>
+          {previewImage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              onClick={() => setPreviewImage(null)}
+            >
+              <motion.img
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                src={previewImage}
+                className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                onClick={e => e.stopPropagation()}
+              />
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

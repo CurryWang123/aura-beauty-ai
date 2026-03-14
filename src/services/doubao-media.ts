@@ -111,11 +111,8 @@ export const generateDoubaoVideo = async (
     if (status === 'succeeded') {
       const videoUrl = result.content?.video_url || result.content?.[0]?.video_url;
       if (!videoUrl) throw new Error('视频生成完成但未返回视频链接');
-
-      // 下载视频转为 Blob URL
-      const videoResponse = await fetch(videoUrl);
-      const blob = await videoResponse.blob();
-      return URL.createObjectURL(blob);
+      // 直接返回 URL，避免跨域 fetch 失败
+      return videoUrl;
     }
 
     if (status === 'failed') {
