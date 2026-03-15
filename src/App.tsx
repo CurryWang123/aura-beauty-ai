@@ -41,6 +41,7 @@ import AuthPage from './components/auth/AuthPage';
 import ApiKeyModal from './components/auth/ApiKeyModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { 
@@ -111,6 +112,7 @@ export default function App() {
   const { user, isLoading: authLoading, logout, getMyApiKeys } = useAuth();
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [historyExpandedIdx, setHistoryExpandedIdx] = useState<number | null>(null);
 
   // 按用户隔离的 storage key
   const storageKey = user ? `aura-beauty-project-${user.userId}` : 'aura-beauty-project';
@@ -787,7 +789,7 @@ export default function App() {
                 {msg.role === 'user' ? (
                   <p className="text-sm font-medium">{msg.content}</p>
                 ) : (
-                  <Markdown>{textContent}</Markdown>
+                  <Markdown remarkPlugins={[remarkGfm]}>{textContent}</Markdown>
                 )}
               </div>
 
@@ -867,7 +869,7 @@ export default function App() {
               {msg.role === 'user' ? (
                 <p className="text-sm font-medium">{content}</p>
               ) : (
-                <Markdown>{content}</Markdown>
+                <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>
               )}
             </div>
           </div>
@@ -877,7 +879,8 @@ export default function App() {
   );
 
   const HistoryView = () => {
-    const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+    const expandedIdx = historyExpandedIdx;
+    const setExpandedIdx = setHistoryExpandedIdx;
 
     const getCompletedStages = (snapshot: ProjectSnapshot): string => {
       const completed: string[] = [];
@@ -1030,8 +1033,8 @@ export default function App() {
                           />
                         )}
                         {snapshot.productionSpecs && (
-                          <div className="brand-card p-6 markdown-body text-sm line-clamp-10 overflow-hidden">
-                            <Markdown>{snapshot.productionSpecs.slice(0, 800)}</Markdown>
+                          <div className="brand-card p-6 markdown-body text-sm">
+                            <Markdown remarkPlugins={[remarkGfm]}>{snapshot.productionSpecs}</Markdown>
                           </div>
                         )}
                       </div>
@@ -1130,12 +1133,12 @@ export default function App() {
     </div>
   );
 
-  const renderStageInput = (stage: BrandStage, label: string, runFn: () => void, imageField?: 'packagingReferenceImage' | 'marketingVideoReferenceImage') => (
+  const renderStageInput = (stage: BrandStage, label: string, runFn: () => void, imageField?: 'packagingReferenceImage' | 'marketingVideoReferenceImage', nextStage?: BrandStage, nextLabel?: string) => (
     <div className="brand-card p-8 space-y-6">
       <HistoryEntry />
       <div>
         <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-ink/30 mb-3">{label}</label>
-        <textarea 
+        <textarea
           placeholder="输入您的具体需求或留空使用默认设置..."
           className="w-full bg-brand-surface border border-black/5 rounded-2xl px-6 py-4 h-24 focus:outline-none focus:ring-4 focus:ring-brand-primary/5 transition-all resize-none text-sm"
           value={customInputs[stage] || ''}
@@ -1145,11 +1148,11 @@ export default function App() {
 
       {imageField && renderImageUpload(imageField)}
 
-      <button 
+      <button
         onClick={runFn}
         disabled={isLocalLoading[stage]}
         className="w-full py-4 font-black flex items-center justify-center gap-2 shadow-xl md:hover:scale-[1.01] transition-all disabled:opacity-50 rounded-full"
-        style={{ 
+        style={{
           backgroundColor: STAGES.find(s => s.id === stage)?.color,
           color: STAGES.find(s => s.id === stage)?.textColor
         }}
@@ -1157,6 +1160,14 @@ export default function App() {
         {isLocalLoading[stage] ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
         生成方案
       </button>
+      {nextStage && (
+        <button
+          onClick={() => setCurrentStage(nextStage)}
+          className="w-full py-3 text-sm text-brand-ink/40 hover:text-brand-ink transition-colors flex items-center justify-center gap-2 border border-black/5 rounded-2xl hover:bg-brand-surface"
+        >
+          跳过此步骤，直接进入{nextLabel || '下一步'} <ArrowRight className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 
@@ -1299,10 +1310,10 @@ export default function App() {
             />
             {/* 抽屉面板 */}
             <motion.div
-              className="fixed top-0 left-0 h-full w-72 z-50 bg-brand-surface flex flex-col shadow-2xl md:hidden"
-              initial={{ x: '-100%' }}
+              className="fixed top-0 right-0 h-full w-72 z-50 bg-brand-surface flex flex-col shadow-2xl md:hidden"
+              initial={{ x: '100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
+              exit={{ x: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
               {/* Logo */}
@@ -1388,7 +1399,7 @@ export default function App() {
         {/* 移动端汉堡菜单按钮 */}
         <button
           onClick={() => setMobileSidebarOpen(true)}
-          className="md:hidden fixed top-4 left-4 z-30 p-2 bg-brand-surface rounded-xl shadow-md border border-black/5 text-brand-ink/60 hover:text-brand-ink"
+          className="md:hidden fixed top-4 right-4 z-30 p-2 bg-brand-surface rounded-xl shadow-md border border-black/5 text-brand-ink/60 hover:text-brand-ink"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -1507,13 +1518,19 @@ export default function App() {
                                 />
                               </div>
                             </div>
-                        <button 
+                        <button
                           onClick={runAnalysis}
                           disabled={isLocalLoading['market-analysis']}
                           className="w-full py-5 brand-button-primary text-lg shadow-2xl shadow-brand-primary/20 flex items-center justify-center gap-3 md:hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                         >
                           {isLocalLoading['market-analysis'] ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
                           启动全链路品牌孵化
+                        </button>
+                        <button
+                          onClick={() => setCurrentStage('brand-story')}
+                          className="w-full py-3 text-sm text-brand-ink/40 hover:text-brand-ink transition-colors flex items-center justify-center gap-2 border border-black/5 rounded-2xl hover:bg-brand-surface"
+                        >
+                          跳过，直接进入品牌故事 <ArrowRight className="w-4 h-4" />
                         </button>
                       </div>
                     )}
@@ -1531,7 +1548,7 @@ export default function App() {
 
                 {currentStage === 'brand-story' && (
                   <div className="space-y-8">
-                    {!project.brandStory && !isLocalLoading['brand-story'] && renderStageInput('brand-story', '品牌故事需求', runStorytelling)}
+                    {!project.brandStory && !isLocalLoading['brand-story'] && renderStageInput('brand-story', '品牌故事需求', runStorytelling, undefined, 'formula-design', '配方设计')}
                     {(project.brandStory || isLocalLoading['brand-story']) && (
                       <div className="space-y-10">
                         <HistoryControls />
@@ -1546,7 +1563,7 @@ export default function App() {
 
                 {currentStage === 'formula-design' && (
                   <div className="space-y-8">
-                    {!project.formulaDesign && !isLocalLoading['formula-design'] && renderStageInput('formula-design', '配方场景与需求描述', runFormulaDesign)}
+                    {!project.formulaDesign && !isLocalLoading['formula-design'] && renderStageInput('formula-design', '配方场景与需求描述', runFormulaDesign, undefined, 'visual-identity', '视觉识别')}
                     {(project.formulaDesign || isLocalLoading['formula-design']) && (
                       <div className="space-y-10">
                         <HistoryControls />
@@ -1561,7 +1578,7 @@ export default function App() {
 
                 {currentStage === 'visual-identity' && (
                   <div className="space-y-8">
-                    {!project.visualIdentity && !isLocalLoading['visual-identity'] && renderStageInput('visual-identity', '视觉设计需求', runVisualIdentity)}
+                    {!project.visualIdentity && !isLocalLoading['visual-identity'] && renderStageInput('visual-identity', '视觉设计需求', runVisualIdentity, undefined, 'packaging-design', '包装设计')}
                     {(project.visualIdentity || isLocalLoading['visual-identity']) && (
                       <div className="space-y-10">
                         <HistoryControls />
@@ -1589,7 +1606,7 @@ export default function App() {
 
                 {currentStage === 'packaging-design' && (
                   <div className="space-y-8">
-                    {!project.packagingDesign && !isLocalLoading['packaging-design'] && renderStageInput('packaging-design', '包装设计需求', runPackaging, 'packagingReferenceImage')}
+                    {!project.packagingDesign && !isLocalLoading['packaging-design'] && renderStageInput('packaging-design', '包装设计需求', runPackaging, 'packagingReferenceImage', 'marketing-video', '营销视频')}
                     {(project.packagingDesign || isLocalLoading['packaging-design']) && (
                       <div className="space-y-10">
                         <HistoryControls />
@@ -1682,7 +1699,7 @@ export default function App() {
                                       <Download className="w-4 h-4" /> 下载 Adobe 规范
                                     </button>
                                   </div>
-                                  <Markdown>{project.productionSpecs}</Markdown>
+                                  <Markdown remarkPlugins={[remarkGfm]}>{project.productionSpecs}</Markdown>
                                 </div>
                               )}
                               {project.productionSpecs && renderRefinementInput('production-file')}
